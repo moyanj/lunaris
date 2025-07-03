@@ -7,35 +7,6 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class LuaVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    Lua54: _ClassVar[LuaVersion]
-    Lua51: _ClassVar[LuaVersion]
-    Lua52: _ClassVar[LuaVersion]
-    Lua53: _ClassVar[LuaVersion]
-    LuaJIT20: _ClassVar[LuaVersion]
-    LuaJIT21: _ClassVar[LuaVersion]
-
-class Status(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    SUCCESS: _ClassVar[Status]
-    FAILED: _ClassVar[Status]
-
-class CommandType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    HEARTBEAT: _ClassVar[CommandType]
-    SHUTDOWN: _ClassVar[CommandType]
-Lua54: LuaVersion
-Lua51: LuaVersion
-Lua52: LuaVersion
-Lua53: LuaVersion
-LuaJIT20: LuaVersion
-LuaJIT21: LuaVersion
-SUCCESS: Status
-FAILED: Status
-HEARTBEAT: CommandType
-SHUTDOWN: CommandType
-
 class Envelope(_message.Message):
     __slots__ = ("type", "payload")
     class MessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -60,6 +31,20 @@ class Envelope(_message.Message):
 
 class Task(_message.Message):
     __slots__ = ("task_id", "code", "input", "lua_version", "priority")
+    class LuaVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        Lua54: _ClassVar[Task.LuaVersion]
+        Lua51: _ClassVar[Task.LuaVersion]
+        Lua52: _ClassVar[Task.LuaVersion]
+        Lua53: _ClassVar[Task.LuaVersion]
+        LuaJIT20: _ClassVar[Task.LuaVersion]
+        LuaJIT21: _ClassVar[Task.LuaVersion]
+    Lua54: Task.LuaVersion
+    Lua51: Task.LuaVersion
+    Lua52: Task.LuaVersion
+    Lua53: Task.LuaVersion
+    LuaJIT20: Task.LuaVersion
+    LuaJIT21: Task.LuaVersion
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     CODE_FIELD_NUMBER: _ClassVar[int]
     INPUT_FIELD_NUMBER: _ClassVar[int]
@@ -68,12 +53,18 @@ class Task(_message.Message):
     task_id: str
     code: str
     input: str
-    lua_version: LuaVersion
+    lua_version: Task.LuaVersion
     priority: int
-    def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., input: _Optional[str] = ..., lua_version: _Optional[_Union[LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., input: _Optional[str] = ..., lua_version: _Optional[_Union[Task.LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
 
 class TaskResult(_message.Message):
     __slots__ = ("task_id", "status", "result", "stdout", "stderr", "time")
+    class Status(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        SUCCESS: _ClassVar[TaskResult.Status]
+        FAILED: _ClassVar[TaskResult.Status]
+    SUCCESS: TaskResult.Status
+    FAILED: TaskResult.Status
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
@@ -81,20 +72,26 @@ class TaskResult(_message.Message):
     STDERR_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
     task_id: str
-    status: Status
+    status: TaskResult.Status
     result: str
     stdout: str
     stderr: str
     time: float
-    def __init__(self, task_id: _Optional[str] = ..., status: _Optional[_Union[Status, str]] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., status: _Optional[_Union[TaskResult.Status, str]] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ...) -> None: ...
 
 class ControlCommand(_message.Message):
     __slots__ = ("type", "data")
+    class CommandType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        HEARTBEAT: _ClassVar[ControlCommand.CommandType]
+        SHUTDOWN: _ClassVar[ControlCommand.CommandType]
+    HEARTBEAT: ControlCommand.CommandType
+    SHUTDOWN: ControlCommand.CommandType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
-    type: CommandType
+    type: ControlCommand.CommandType
     data: str
-    def __init__(self, type: _Optional[_Union[CommandType, str]] = ..., data: _Optional[str] = ...) -> None: ...
+    def __init__(self, type: _Optional[_Union[ControlCommand.CommandType, str]] = ..., data: _Optional[str] = ...) -> None: ...
 
 class NodeStatus(_message.Message):
     __slots__ = ("node_id", "status", "max_concurrency", "available_mem", "processing_tasks")

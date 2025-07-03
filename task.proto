@@ -23,15 +23,15 @@ message Task {
   string input = 3;           // 输入参数（JSON格式）
   LuaVersion lua_version = 4; // Lua解释器版本
   int32 priority = 5;         // 优先级
-}
 
-enum LuaVersion {
-  Lua54 = 0;
-  Lua51 = 1;
-  Lua52 = 2;
-  Lua53 = 3;
-  LuaJIT20 = 4;
-  LuaJIT21 = 5;
+  enum LuaVersion {
+    Lua54 = 0;
+    Lua51 = 1;
+    Lua52 = 2;
+    Lua53 = 3;
+    LuaJIT20 = 4;
+    LuaJIT21 = 5;
+  }
 }
 
 // ========== 结果返回格式 ==========
@@ -42,22 +42,21 @@ message TaskResult {
   string stdout = 4;  // 标准输出
   string stderr = 5;  // 错误输出
   double time = 6;    // 运行时间（毫秒）
-}
 
-enum Status {
-  SUCCESS = 0;
-  FAILED = 1;
+  enum Status {
+    SUCCESS = 0;
+    FAILED = 1;
+  }
 }
 
 // ========== 精简控制命令 ==========
 message ControlCommand {
   CommandType type = 1; // 命令类型
   string data = 2;      // 附加数据（如心跳间隔、关机前任务保留策略）
-}
-
-enum CommandType {
-  HEARTBEAT = 0;
-  SHUTDOWN = 1;
+  enum CommandType {
+    HEARTBEAT = 0;
+    SHUTDOWN = 1;
+  }
 }
 
 // ========== 节点状态 ==========
