@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package com.example.distributed.task;
+
+message TaskPayload {
+  // 可扩展字段（示例）
+  // map<string, string> metadata = 1;
+}
+
+// ========== 核心任务格式 ==========
+message Task {
+  string task_id = 1;         // 任务ID
+  string code = 2;            // Lua代码
+  string input = 3;           // 输入参数（JSON格式）
+  LuaVersion lua_version = 4; // Lua解释器版本
+  int32 priority = 5;         // 优先级
+  int32 version = 6;          // 协议版本号（便于未来升级）
+}
+
+enum LuaVersion {
+  Lua54 = 0;
+  Lua51 = 1;
+  Lua52 = 2;
+  Lua53 = 3;
+  LuaJIT20 = 4;
+  LuaJIT21 = 5;
+}
+
+// ========== 结果返回格式 ==========
+message TaskResult {
+  string task_id = 1; // 对应任务ID
+  Status status = 2;  // 执行状态
+  string result = 3;  // 结果（JSON格式）
+  string stdout = 4;  // 标准输出
+  string stderr = 5;  // 错误输出
+  double time = 6;    // 运行时间（秒）
+  int32 version = 7;  // 协议版本号
+}
+
+enum Status {
+  SUCCESS = 0;
+  FAILED = 1;
+}
+
+// ========== 精简控制命令 ==========
+message ControlCommand {
+  CommandType type = 1; // 命令类型
+  string data = 2;      // 附加数据（如心跳间隔、关机前任务保留策略）
+}
+
+enum CommandType {
+  HEARTBEAT = 0;
+  SHUTDOWN = 1;
+}
+
+// ========== 节点状态 ==========
+message NodeStatus {
+  enum NodeState {
+    IDLE = 0; // 空闲（可接收任务）
+    BUSY = 1; // 忙碌（任务满载）
+  }
+
+  NodeState status = 1;                 // 节点状态
+  int32 max_concurrency = 2;            // 最大并发任务数
+  int32 available_mem = 3;              // 可用内存（MB）
+  repeated string processing_tasks = 4; // 正在处理的任务ID列表
+}
+
+// ========== 节点注册消息 ==========
+message NodeRegistration {
+  string hostname = 1;       // 主机名
+  string os = 2;             // 操作系统
+  string arch = 3;           // 处理器架构
+  int32 max_concurrency = 4; // 最大并发任务数
+  int32 total_cpus = 5;      // 总CPU核心数
+  int32 total_mem = 6;       // 总内存容量（MB）
+}
