@@ -2,9 +2,18 @@ syntax = "proto3";
 
 package com.example.distributed.task;
 
-message TaskPayload {
-  // 可扩展字段（示例）
-  // map<string, string> metadata = 1;
+message Envelope {
+  enum MessageType {
+    TASK = 0;
+    TASK_RESULT = 1;
+    CONTROL_COMMAND = 2;
+    NODE_STATUS = 3;
+    NODE_REGISTRATION = 4;
+    NODE_REGISTRATION_REPLY = 5;
+  }
+
+  MessageType type = 1;
+  bytes payload = 2;
 }
 
 // ========== 核心任务格式 ==========
@@ -14,7 +23,6 @@ message Task {
   string input = 3;           // 输入参数（JSON格式）
   LuaVersion lua_version = 4; // Lua解释器版本
   int32 priority = 5;         // 优先级
-  int32 version = 6;          // 协议版本号（便于未来升级）
 }
 
 enum LuaVersion {
@@ -33,8 +41,7 @@ message TaskResult {
   string result = 3;  // 结果（JSON格式）
   string stdout = 4;  // 标准输出
   string stderr = 5;  // 错误输出
-  double time = 6;    // 运行时间（秒）
-  int32 version = 7;  // 协议版本号
+  double time = 6;    // 运行时间（毫秒）
 }
 
 enum Status {
@@ -59,11 +66,11 @@ message NodeStatus {
     IDLE = 0; // 空闲（可接收任务）
     BUSY = 1; // 忙碌（任务满载）
   }
-
-  NodeState status = 1;                 // 节点状态
-  int32 max_concurrency = 2;            // 最大并发任务数
-  int32 available_mem = 3;              // 可用内存（MB）
-  repeated string processing_tasks = 4; // 正在处理的任务ID列表
+  string node_id = 1;                   // 节点ID
+  NodeState status = 2;                 // 节点状态
+  int32 max_concurrency = 3;            // 最大并发任务数
+  int32 available_mem = 4;              // 可用内存（MB）
+  repeated string processing_tasks = 5; // 正在处理的任务ID列表
 }
 
 // ========== 节点注册消息 ==========
@@ -74,4 +81,8 @@ message NodeRegistration {
   int32 max_concurrency = 4; // 最大并发任务数
   int32 total_cpus = 5;      // 总CPU核心数
   int32 total_mem = 6;       // 总内存容量（MB）
+}
+
+message NodeRegistrationReply {
+  string node_id = 1; // 节点ID
 }
