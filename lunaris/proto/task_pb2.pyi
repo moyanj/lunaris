@@ -30,7 +30,7 @@ class Envelope(_message.Message):
     def __init__(self, type: _Optional[_Union[Envelope.MessageType, str]] = ..., payload: _Optional[bytes] = ...) -> None: ...
 
 class Task(_message.Message):
-    __slots__ = ("task_id", "code", "input", "lua_version", "priority")
+    __slots__ = ("task_id", "code", "args", "lua_version", "priority")
     class LuaVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         Lua54: _ClassVar[Task.LuaVersion]
@@ -47,15 +47,15 @@ class Task(_message.Message):
     LuaJIT21: Task.LuaVersion
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     CODE_FIELD_NUMBER: _ClassVar[int]
-    INPUT_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
     LUA_VERSION_FIELD_NUMBER: _ClassVar[int]
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
     task_id: str
     code: str
-    input: str
+    args: str
     lua_version: Task.LuaVersion
     priority: int
-    def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., input: _Optional[str] = ..., lua_version: _Optional[_Union[Task.LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., args: _Optional[str] = ..., lua_version: _Optional[_Union[Task.LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
 
 class TaskResult(_message.Message):
     __slots__ = ("task_id", "status", "result", "stdout", "stderr", "time")
@@ -94,7 +94,7 @@ class ControlCommand(_message.Message):
     def __init__(self, type: _Optional[_Union[ControlCommand.CommandType, str]] = ..., data: _Optional[str] = ...) -> None: ...
 
 class NodeStatus(_message.Message):
-    __slots__ = ("node_id", "status", "max_concurrency", "available_mem", "processing_tasks")
+    __slots__ = ("node_id", "status", "current_task", "available_mem", "processing_tasks")
     class NodeState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         IDLE: _ClassVar[NodeStatus.NodeState]
@@ -103,15 +103,15 @@ class NodeStatus(_message.Message):
     BUSY: NodeStatus.NodeState
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
-    MAX_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    CURRENT_TASK_FIELD_NUMBER: _ClassVar[int]
     AVAILABLE_MEM_FIELD_NUMBER: _ClassVar[int]
     PROCESSING_TASKS_FIELD_NUMBER: _ClassVar[int]
     node_id: str
     status: NodeStatus.NodeState
-    max_concurrency: int
+    current_task: int
     available_mem: int
     processing_tasks: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., max_concurrency: _Optional[int] = ..., available_mem: _Optional[int] = ..., processing_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., current_task: _Optional[int] = ..., available_mem: _Optional[int] = ..., processing_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class NodeRegistration(_message.Message):
     __slots__ = ("hostname", "os", "arch", "max_concurrency", "total_cpus", "total_mem")

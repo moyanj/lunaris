@@ -18,9 +18,9 @@ message Envelope {
 
 // ========== 核心任务格式 ==========
 message Task {
-  string task_id = 1;         // 任务ID
+  string task_id = 1;
   string code = 2;            // Lua代码
-  string input = 3;           // 输入参数（JSON格式）
+  string args = 3;            // 输入参数（JSON格式）
   LuaVersion lua_version = 4; // Lua解释器版本
   int32 priority = 5;         // 优先级
 
@@ -67,7 +67,7 @@ message NodeStatus {
   }
   string node_id = 1;                   // 节点ID
   NodeState status = 2;                 // 节点状态
-  int32 max_concurrency = 3;            // 最大并发任务数
+  int32 current_task = 3;               // 当前正在执行的任务数
   int32 available_mem = 4;              // 可用内存（MB）
   repeated string processing_tasks = 5; // 正在处理的任务ID列表
 }
