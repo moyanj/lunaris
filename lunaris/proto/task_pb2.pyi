@@ -114,20 +114,20 @@ class NodeStatus(_message.Message):
     def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., current_task: _Optional[int] = ..., available_mem: _Optional[int] = ..., processing_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class NodeRegistration(_message.Message):
-    __slots__ = ("hostname", "os", "arch", "max_concurrency", "total_cpus", "total_mem")
+    __slots__ = ("hostname", "os", "arch", "max_concurrency", "num_cpu", "memory_size")
     HOSTNAME_FIELD_NUMBER: _ClassVar[int]
     OS_FIELD_NUMBER: _ClassVar[int]
     ARCH_FIELD_NUMBER: _ClassVar[int]
     MAX_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
-    TOTAL_CPUS_FIELD_NUMBER: _ClassVar[int]
-    TOTAL_MEM_FIELD_NUMBER: _ClassVar[int]
+    NUM_CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_SIZE_FIELD_NUMBER: _ClassVar[int]
     hostname: str
     os: str
     arch: str
     max_concurrency: int
-    total_cpus: int
-    total_mem: int
-    def __init__(self, hostname: _Optional[str] = ..., os: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., total_cpus: _Optional[int] = ..., total_mem: _Optional[int] = ...) -> None: ...
+    num_cpu: int
+    memory_size: int
+    def __init__(self, hostname: _Optional[str] = ..., os: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., num_cpu: _Optional[int] = ..., memory_size: _Optional[int] = ...) -> None: ...
 
 class NodeRegistrationReply(_message.Message):
     __slots__ = ("node_id",)
