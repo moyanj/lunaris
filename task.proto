@@ -65,11 +65,9 @@ message NodeStatus {
     IDLE = 0; // 空闲（可接收任务）
     BUSY = 1; // 忙碌（任务满载）
   }
-  string node_id = 1;                   // 节点ID
-  NodeState status = 2;                 // 节点状态
-  int32 current_task = 3;               // 当前正在执行的任务数
-  int32 available_mem = 4;              // 可用内存（MB）
-  repeated string processing_tasks = 5; // 正在处理的任务ID列表
+  string node_id = 1;     // 节点ID
+  NodeState status = 2;   // 节点状态
+  int32 current_task = 3; // 当前正在执行的任务数
 }
 
 // ========== 节点注册消息 ==========

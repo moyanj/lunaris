@@ -1,47 +1,91 @@
-# main.py
-from os import system
-from websockets.asyncio.client import connect, ClientConnection
-from lunaris.runtime.engine import LuaResult
-from lunaris.utils import proto2bytes, bytes2proto
-from lunaris.worker.core import Runner
-from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task, TaskResult
-from typing import Any, Optional
+import asyncio
 import secrets
 import platform
 import psutil
+from typing import Optional, Callable, Dict, Tuple
+from multiprocessing import Pool
+from websockets.asyncio.client import connect, ClientConnection
+from lunaris.utils import proto2bytes, bytes2proto
+from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task, TaskResult
+from lunaris.runtime.engine import LuaResult, LuaVersion
+from lunaris.runtime import LuaSandbox
 
 
 class Worker:
     def __init__(
-        self, master_uri: str, name: Optional[str] = None, max_concurrency: int = 32
+        self,
+        master_uri: str,
+        name: Optional[str] = None,
+        max_concurrency: Optional[int] = None,
     ) -> None:
+        # Worker 配置
         self.master_uri = master_uri
         self.name = name or f"worker-{secrets.token_hex(8)}"
-        self.max_concurrency = max_concurrency
-        self.ws: ClientConnection = None  # type: ignore
-        self.node_id = "114514"
-        self.runner = Runner(
-            max_workers=self.max_concurrency, callback=self.report_result
-        )
+        self.max_concurrency = max_concurrency or psutil.cpu_count()
+        self.node_id: str = ""
+        self.running = False
+
+        # WebSocket 连接
+        self.ws: Optional[ClientConnection] = None
+
+        # 任务执行器
+        self._init_lua_version_mapping()
+        self.executor: Optional[Pool] = None  # type: ignore
+        self.num_running = 0
+
+    def _init_lua_version_mapping(self) -> None:
+        """初始化Lua版本映射表"""
+        self.lua_proto2engine: Dict[Task.LuaVersion, LuaVersion] = {
+            Task.LuaVersion.Lua54: LuaVersion.LUA_54,
+            Task.LuaVersion.Lua53: LuaVersion.LUA_53,
+            Task.LuaVersion.Lua52: LuaVersion.LUA_52,
+            Task.LuaVersion.Lua51: LuaVersion.LUA_51,
+            Task.LuaVersion.LuaJIT20: LuaVersion.LUA_JIT_20,
+            Task.LuaVersion.LuaJIT21: LuaVersion.LUA_JIT_21,
+        }
 
     async def connect(self) -> None:
+        """建立与Master的WebSocket连接"""
         self.ws = await connect(self.master_uri).__aenter__()
+        self.running = True
+        self.executor = Pool(self.max_concurrency)
+
+    async def heartbeat(self) -> None:
+        if not self.ws:
+            raise ConnectionError("WebSocket连接未建立")
+        print("心跳任务启动")
+        while self.running:
+            await asyncio.sleep(10)
+
+            state = NodeStatus.NodeState.IDLE
+            if self.num_running == self.max_concurrency:
+                state = NodeStatus.NodeState.BUSY
+
+            await self.ws.send(
+                proto2bytes(
+                    NodeStatus(
+                        node_id=self.node_id,
+                        status=state,
+                        current_task=self.num_running,
+                    )
+                )
+            )
+            print(f"{self.node_id} {state}")
 
     async def disconnect(self) -> None:
-        await self.ws.close()
-        await self.ws.__aexit__(None, None, None)
-
-    async def report_result(self, task_id: str, result: LuaResult) -> None:
-        proto = TaskResult(
-            task_id=task_id,
-            result=result.result,
-            stdout=result.stdout,
-            stderr=result.stderr,
-            time=result.time,
-        )
-        await self.ws.send(proto2bytes(proto))
+        """关闭连接"""
+        if self.ws:
+            await self.ws.close()
+            self.ws = None
+        if self.executor:
+            self.executor.close()
+            self.executor = None
 
     async def register(self) -> None:
+        """向Master注册Worker节点"""
+        if not self.ws:
+            raise ConnectionError("WebSocket未连接")
+
         registration = NodeRegistration(
             hostname=self.name,
             os=platform.system(),
@@ -52,16 +96,75 @@ class Worker:
         )
         await self.ws.send(proto2bytes(registration))
 
-    async def on_message(self, data: Any) -> None:
-        if isinstance(data, Task):
-            self.runner.submit(data)
+    async def report_result(self, task_id: str, result: LuaResult) -> None:
+        """向Master报告任务结果"""
+        if not self.ws:
+            raise ConnectionError("WebSocket未连接")
 
-    async def run(self):
-        await self.connect()
-        await self.register()
-        node_id = bytes2proto(await self.ws.recv(decode=False)).node_id
-        self.node_id = node_id
+        proto = TaskResult(
+            task_id=task_id,
+            result=result.result,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            time=result.time,
+        )
+        await self.ws.send(proto2bytes(proto))
 
-        while True:
-            proto = bytes2proto(await self.ws.recv(decode=False))
-            await self.on_message(proto)
+    def _task_completed(self, result_tuple: Tuple[LuaResult, str]) -> None:
+        """任务完成回调"""
+        result, task_id = result_tuple
+        self.num_running -= 1
+        asyncio.create_task(self.report_result(task_id, result))
+
+    def _execute_task(
+        self, code: str, args: str, lua_version: Task.LuaVersion, task_id: str
+    ) -> Tuple[LuaResult, str]:
+        """实际执行任务的函数(在子进程中运行)"""
+        version = self.lua_proto2engine.get(lua_version)
+        if version is None:
+            raise ValueError(f"不支持的Lua版本: {lua_version}")
+
+        lua = LuaSandbox(version)
+        return lua.run(code, *args), task_id
+
+    async def handle_task(self, task: Task) -> None:
+        """处理接收到的任务"""
+        if not self.executor:
+            raise RuntimeError("执行器未初始化")
+
+        self.num_running += 1
+        self.executor.apply_async(
+            self._execute_task,
+            (task.code, task.args, task.lua_version, task.task_id),
+            callback=self._task_completed,
+        )
+
+    async def run(self) -> None:
+        """Worker主循环"""
+        try:
+            await self.connect()
+            await self.register()
+
+            # 等待Master分配node_id
+            if self.ws:
+                response = await self.ws.recv(decode=False)
+                self.node_id = bytes2proto(response).node_id
+
+            asyncio.create_task(self.heartbeat())
+
+            # 主消息处理循环
+            while self.running and self.ws:
+                message = await self.ws.recv(decode=False)
+                proto = bytes2proto(message)
+                if isinstance(proto, Task):
+                    await self.handle_task(proto)
+
+        except (ConnectionError, asyncio.CancelledError) as e:
+            print(f"连接错误: {e}")
+        finally:
+            await self.shutdown()
+
+    async def shutdown(self) -> None:
+        """优雅关闭Worker"""
+        self.running = False
+        await self.disconnect()

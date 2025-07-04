@@ -1,5 +1,6 @@
 from typing import Optional
 from fastapi import WebSocket
+from fastapi.websockets import WebSocketState
 from lunaris.proto.task_pb2 import (
     NodeRegistration,
     NodeRegistrationReply,
@@ -30,6 +31,7 @@ class WorkerManager:
 
     async def register(self, ws: WebSocket, registration: NodeRegistration):
         worker = Worker(ws, registration)
+        print(f"Registering worker {registration.hostname}")
         self.workers.append(worker)
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
 
@@ -50,18 +52,25 @@ class WorkerManager:
 
     async def close(self):
         for worker in self.workers:
-            await worker.websocket.close()
+            if worker.websocket.client_state != WebSocketState.DISCONNECTED:
+                await worker.websocket.close()
 
     async def handle_heartbeat(self, worker: WebSocket, status: NodeStatus):
         for w in self.workers:
             if w.websocket == worker:
+                print(f"Heartbeat from {w.node_id}")
                 w.last_heartbeat = datetime.now()
                 w.status = status
                 break
 
-    def remove_inactive_workers(self):
-        cutoff_time = datetime.now() - timedelta(seconds=15)
-        self.workers = [w for w in self.workers if w.last_heartbeat > cutoff_time]
+    async def remove_inactive_workers(self):
+        cutoff_time = datetime.now() - timedelta(seconds=20)
+        for w in self.workers:
+            if w.last_heartbeat < cutoff_time:
+                print(f"Removing inactive worker {w.node_id}")
+                if w.websocket.client_state != WebSocketState.DISCONNECTED:
+                    await w.websocket.close()
+                self.workers.remove(w)
 
 
 class TaskManager:

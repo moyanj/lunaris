@@ -1,5 +1,6 @@
 import asyncio
 from fastapi import FastAPI, WebSocket, Depends
+from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.utils import bytes2proto, proto2bytes
 from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task as TaskProto
 from lunaris.master.manager import WorkerManager, TaskManager
@@ -23,6 +24,8 @@ def get_app_state() -> AppState:
 @asynccontextmanager
 async def lifecycle(app: FastAPI):
     app.state.state = AppState()
+    asyncio.create_task(check_heartbeat(app.state.state))
+    asyncio.create_task(destribute_tasks(app.state.state))
     yield
     await app.state.state.close()
 
@@ -43,17 +46,21 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         while True:
             data = await ws.receive_bytes()
             await state.worker_manager.dispatch(ws, data)
-
+    except WebSocketDisconnect:
+        print("Worker disconnected")
     except Exception as e:
-        print(e)
-        await ws.close()
+        print(f"Error with worker connection: {e}")
+    finally:
+        if ws.client_state != WebSocketState.DISCONNECTED:
+            print(str(ws.state))
+            await ws.close()
 
 
 async def check_heartbeat(state: AppState):
     try:
         while True:
             await asyncio.sleep(20)  # 每5秒检查一次
-            state.worker_manager.remove_inactive_workers()
+            await state.worker_manager.remove_inactive_workers()
     except asyncio.CancelledError:
         pass
 

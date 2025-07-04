@@ -1,8 +1,6 @@
-from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -94,7 +92,7 @@ class ControlCommand(_message.Message):
     def __init__(self, type: _Optional[_Union[ControlCommand.CommandType, str]] = ..., data: _Optional[str] = ...) -> None: ...
 
 class NodeStatus(_message.Message):
-    __slots__ = ("node_id", "status", "current_task", "available_mem", "processing_tasks")
+    __slots__ = ("node_id", "status", "current_task")
     class NodeState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         IDLE: _ClassVar[NodeStatus.NodeState]
@@ -104,14 +102,10 @@ class NodeStatus(_message.Message):
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     CURRENT_TASK_FIELD_NUMBER: _ClassVar[int]
-    AVAILABLE_MEM_FIELD_NUMBER: _ClassVar[int]
-    PROCESSING_TASKS_FIELD_NUMBER: _ClassVar[int]
     node_id: str
     status: NodeStatus.NodeState
     current_task: int
-    available_mem: int
-    processing_tasks: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., current_task: _Optional[int] = ..., available_mem: _Optional[int] = ..., processing_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., current_task: _Optional[int] = ...) -> None: ...
 
 class NodeRegistration(_message.Message):
     __slots__ = ("hostname", "os", "arch", "max_concurrency", "num_cpu", "memory_size")
