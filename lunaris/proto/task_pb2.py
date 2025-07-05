@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntask.proto\x12\x1c\x63om.example.distributed.task\"\xe2\x01\n\x08\x45nvelope\x12@\n\x04type\x18\x01 \x01(\x0e\x32\x32.com.example.distributed.task.Envelope.MessageType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"\x82\x01\n\x0bMessageType\x12\x08\n\x04TASK\x10\x00\x12\x0f\n\x0bTASK_RESULT\x10\x01\x12\x13\n\x0f\x43ONTROL_COMMAND\x10\x02\x12\x0f\n\x0bNODE_STATUS\x10\x03\x12\x15\n\x11NODE_REGISTRATION\x10\x04\x12\x1b\n\x17NODE_REGISTRATION_REPLY\x10\x05\"\xe7\x01\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\x42\n\x0blua_version\x18\x04 \x01(\x0e\x32-.com.example.distributed.task.Task.LuaVersion\x12\x10\n\x08priority\x18\x05 \x01(\x05\"\\\n\nLuaVersion\x12\n\n\x06LUA_54\x10\x00\x12\n\n\x06LUA_51\x10\x01\x12\n\n\x06LUA_52\x10\x02\x12\n\n\x06LUA_53\x10\x03\x12\x0e\n\nLUA_JIT_20\x10\x04\x12\x0e\n\nLUA_JIT_21\x10\x05\"\xbf\x01\n\nTaskResult\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12?\n\x06status\x18\x02 \x01(\x0e\x32/.com.example.distributed.task.TaskResult.Status\x12\x0e\n\x06result\x18\x03 \x01(\t\x12\x0e\n\x06stdout\x18\x04 \x01(\t\x12\x0e\n\x06stderr\x18\x05 \x01(\t\x12\x0c\n\x04time\x18\x06 \x01(\x01\"!\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\n\n\x06\x46\x41ILED\x10\x01\"\x92\x01\n\x0e\x43ontrolCommand\x12\x46\n\x04type\x18\x01 \x01(\x0e\x32\x38.com.example.distributed.task.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x98\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x42\n\x06status\x18\x02 \x01(\x0e\x32\x32.com.example.distributed.task.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\x05\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"y\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02os\x18\x02 \x01(\t\x12\x0c\n\x04\x61rch\x18\x03 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x04 \x01(\x05\x12\x0f\n\x07num_cpu\x18\x06 \x01(\x05\x12\x13\n\x0bmemory_size\x18\x07 \x01(\x05\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntask.proto\x12\x1c\x63om.example.distributed.task\"\xe2\x01\n\x08\x45nvelope\x12@\n\x04type\x18\x01 \x01(\x0e\x32\x32.com.example.distributed.task.Envelope.MessageType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"\x82\x01\n\x0bMessageType\x12\x08\n\x04TASK\x10\x00\x12\x0f\n\x0bTASK_RESULT\x10\x01\x12\x13\n\x0f\x43ONTROL_COMMAND\x10\x02\x12\x0f\n\x0bNODE_STATUS\x10\x03\x12\x15\n\x11NODE_REGISTRATION\x10\x04\x12\x1b\n\x17NODE_REGISTRATION_REPLY\x10\x05\"\xe7\x01\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\x42\n\x0blua_version\x18\x04 \x01(\x0e\x32-.com.example.distributed.task.Task.LuaVersion\x12\x10\n\x08priority\x18\x05 \x01(\x05\"\\\n\nLuaVersion\x12\n\n\x06LUA_54\x10\x00\x12\n\n\x06LUA_51\x10\x01\x12\n\n\x06LUA_52\x10\x02\x12\n\n\x06LUA_53\x10\x03\x12\x0e\n\nLUA_JIT_20\x10\x04\x12\x0e\n\nLUA_JIT_21\x10\x05\"[\n\nTaskResult\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\x0e\n\x06stdout\x18\x03 \x01(\t\x12\x0e\n\x06stderr\x18\x04 \x01(\t\x12\x0c\n\x04time\x18\x05 \x01(\x01\"\x92\x01\n\x0e\x43ontrolCommand\x12\x46\n\x04type\x18\x01 \x01(\x0e\x32\x38.com.example.distributed.task.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x98\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x42\n\x06status\x18\x02 \x01(\x0e\x32\x32.com.example.distributed.task.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\x05\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"y\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02os\x18\x02 \x01(\t\x12\x0c\n\x04\x61rch\x18\x03 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x04 \x01(\x05\x12\x0f\n\x07num_cpu\x18\x06 \x01(\x05\x12\x13\n\x0bmemory_size\x18\x07 \x01(\x05\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,20 +39,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TASK']._serialized_end=505
   _globals['_TASK_LUAVERSION']._serialized_start=413
   _globals['_TASK_LUAVERSION']._serialized_end=505
-  _globals['_TASKRESULT']._serialized_start=508
-  _globals['_TASKRESULT']._serialized_end=699
-  _globals['_TASKRESULT_STATUS']._serialized_start=666
-  _globals['_TASKRESULT_STATUS']._serialized_end=699
-  _globals['_CONTROLCOMMAND']._serialized_start=702
-  _globals['_CONTROLCOMMAND']._serialized_end=848
-  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_start=806
-  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_end=848
-  _globals['_NODESTATUS']._serialized_start=851
-  _globals['_NODESTATUS']._serialized_end=1003
-  _globals['_NODESTATUS_NODESTATE']._serialized_start=972
-  _globals['_NODESTATUS_NODESTATE']._serialized_end=1003
-  _globals['_NODEREGISTRATION']._serialized_start=1005
-  _globals['_NODEREGISTRATION']._serialized_end=1126
-  _globals['_NODEREGISTRATIONREPLY']._serialized_start=1128
-  _globals['_NODEREGISTRATIONREPLY']._serialized_end=1168
+  _globals['_TASKRESULT']._serialized_start=507
+  _globals['_TASKRESULT']._serialized_end=598
+  _globals['_CONTROLCOMMAND']._serialized_start=601
+  _globals['_CONTROLCOMMAND']._serialized_end=747
+  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_start=705
+  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_end=747
+  _globals['_NODESTATUS']._serialized_start=750
+  _globals['_NODESTATUS']._serialized_end=902
+  _globals['_NODESTATUS_NODESTATE']._serialized_start=871
+  _globals['_NODESTATUS_NODESTATE']._serialized_end=902
+  _globals['_NODEREGISTRATION']._serialized_start=904
+  _globals['_NODEREGISTRATION']._serialized_end=1025
+  _globals['_NODEREGISTRATIONREPLY']._serialized_start=1027
+  _globals['_NODEREGISTRATIONREPLY']._serialized_end=1067
 # @@protoc_insertion_point(module_scope)

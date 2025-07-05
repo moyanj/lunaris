@@ -37,16 +37,10 @@ message Task {
 // ========== 结果返回格式 ==========
 message TaskResult {
   string task_id = 1; // 对应任务ID
-  Status status = 2;  // 执行状态
-  string result = 3;  // 结果（JSON格式）
-  string stdout = 4;  // 标准输出
-  string stderr = 5;  // 错误输出
-  double time = 6;    // 运行时间（毫秒）
-
-  enum Status {
-    SUCCESS = 0;
-    FAILED = 1;
-  }
+  string result = 2;  // 结果（JSON格式）
+  string stdout = 3;  // 标准输出
+  string stderr = 4;  // 错误输出
+  double time = 5;    // 运行时间（毫秒）
 }
 
 // ========== 精简控制命令 ==========

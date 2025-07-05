@@ -56,26 +56,18 @@ class Task(_message.Message):
     def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., args: _Optional[str] = ..., lua_version: _Optional[_Union[Task.LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
 
 class TaskResult(_message.Message):
-    __slots__ = ("task_id", "status", "result", "stdout", "stderr", "time")
-    class Status(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-        __slots__ = ()
-        SUCCESS: _ClassVar[TaskResult.Status]
-        FAILED: _ClassVar[TaskResult.Status]
-    SUCCESS: TaskResult.Status
-    FAILED: TaskResult.Status
+    __slots__ = ("task_id", "result", "stdout", "stderr", "time")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
-    STATUS_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
     STDOUT_FIELD_NUMBER: _ClassVar[int]
     STDERR_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
     task_id: str
-    status: TaskResult.Status
     result: str
     stdout: str
     stderr: str
     time: float
-    def __init__(self, task_id: _Optional[str] = ..., status: _Optional[_Union[TaskResult.Status, str]] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ...) -> None: ...
 
 class ControlCommand(_message.Message):
     __slots__ = ("type", "data")

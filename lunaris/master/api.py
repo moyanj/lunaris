@@ -39,3 +39,19 @@ async def add_task(task: TaskModel, state: AppState = Depends(get_app_state)):
     )
     state.task_manager.add_task(task_r)
     return Rest(data=task_r.to_dict())
+
+
+@app.get("/task/result/{task_id}")
+async def get_task_result(task_id: str, state: AppState = Depends(get_app_state)):
+    result = state.worker_manager.result.get(task_id)
+    if result is None:
+        return Rest(msg="Task not found or doesn't run", status_code=404)
+    return Rest(
+        data={
+            "task_id": result.task_id,
+            "result": result.result,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "time": result.time,
+        }
+    )

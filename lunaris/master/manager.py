@@ -57,6 +57,8 @@ class WorkerManager:
     async def dispatch(self, worker: WebSocket, data: bytes):
         data = bytes2proto(data)
         if type(data) == TaskResult:
+            print(f"收到{data.task_id}的执行结果")
+            print(data)
             self.result[data.task_id] = data
         elif type(data) == NodeStatus:
             await self.handle_heartbeat(worker, data)
