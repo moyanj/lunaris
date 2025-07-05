@@ -9,6 +9,7 @@ from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task, TaskResult
 from lunaris.runtime.engine import LuaResult, LuaVersion
 from lunaris.runtime import LuaSandbox
+from lunaris.worker.core import Runner
 
 
 class Worker:
@@ -21,7 +22,7 @@ class Worker:
         # Worker 配置
         self.master_uri = master_uri
         self.name = name or f"worker-{secrets.token_hex(8)}"
-        self.max_concurrency = max_concurrency or psutil.cpu_count()
+        self.max_concurrency = max_concurrency or psutil.cpu_count() or 1
         self.node_id: str = ""
         self.running = False
 
@@ -29,14 +30,15 @@ class Worker:
         self.ws: Optional[ClientConnection] = None
 
         # 任务执行器
-        self.executor: Optional[Pool] = None  # type: ignore
+        self.runner = Runner(
+            max_workers=self.max_concurrency, report_callback=self.report_result
+        )
         self.num_running = 0
 
     async def connect(self) -> None:
         """建立与Master的WebSocket连接"""
         self.ws = await connect(self.master_uri).__aenter__()
         self.running = True
-        self.executor = Pool(self.max_concurrency)
 
     async def heartbeat(self) -> None:
         if not self.ws:
@@ -64,9 +66,9 @@ class Worker:
         if self.ws:
             await self.ws.close()
             self.ws = None
-        if self.executor:
-            self.executor.close()
-            self.executor = None
+        if self.runner:
+            await self.runner.close()
+            self.runner = None
 
     async def register(self) -> None:
         """向Master注册Worker节点"""
@@ -83,7 +85,7 @@ class Worker:
         )
         await self.ws.send(proto2bytes(registration))
 
-    async def report_result(self, task_id: str, result: LuaResult) -> None:
+    async def report_result(self, result: LuaResult, task_id: str) -> None:
         """向Master报告任务结果"""
         if not self.ws:
             raise ConnectionError("WebSocket未连接")
@@ -97,34 +99,14 @@ class Worker:
         )
         await self.ws.send(proto2bytes(proto))
 
-    def _task_completed(self, result_tuple: Tuple[LuaResult, str]) -> None:
-        """任务完成回调"""
-        result, task_id = result_tuple
-        self.num_running -= 1
-        asyncio.create_task(self.report_result(task_id, result))
-
-    def _execute_task(
-        self, code: str, args: str, lua_version: Task.LuaVersion, task_id: str
-    ) -> Tuple[LuaResult, str]:
-        """实际执行任务的函数(在子进程中运行)"""
-        version = getattr(LuaVersion, Task.LuaVersion.Name(lua_version))
-        if version is None:
-            raise ValueError(f"不支持的Lua版本: {lua_version}")
-
-        lua = LuaSandbox(version)
-        return lua.run(code, *args), task_id
-
     async def handle_task(self, task: Task) -> None:
         """处理接收到的任务"""
-        if not self.executor:
+        if not self.runner:
             raise RuntimeError("执行器未初始化")
-
+        print("接受任务：", task.task_id)
         self.num_running += 1
-        self.executor.apply_async(
-            self._execute_task,
-            (task.code, task.args, task.lua_version, task.task_id),
-            callback=self._task_completed,
-        )
+        print(f"当前运行任务数：{self.num_running}")
+        self.runner.submit(task)
 
     async def run(self) -> None:
         """Worker主循环"""
@@ -138,6 +120,8 @@ class Worker:
                 self.node_id = bytes2proto(response).node_id
 
             asyncio.create_task(self.heartbeat())
+            if self.runner:
+                self.runner.start()
 
             # 主消息处理循环
             while self.running and self.ws:

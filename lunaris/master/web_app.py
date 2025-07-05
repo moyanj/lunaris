@@ -77,25 +77,17 @@ async def check_heartbeat(state: AppState):
 async def destribute_tasks(state: AppState):
     while True:
         task: Task = await state.task_manager.get()
-        idle_worker = []
-        for worker in state.worker_manager.workers:
-
-            if worker.status and worker.status.status == NodeStatus.NodeState.IDLE:
-                idle_worker.append(worker)
-
-        low_worker: list[Worker] = sorted(
-            idle_worker, key=lambda x: x.status.current_task
-        )
-        if len(low_worker) > 0:
-            await low_worker[0].websocket.send_bytes(
-                proto2bytes(
-                    TaskProto(
-                        task_id=task.task_id,
-                        code=task.code,
-                        args=json.dumps(task.args),
-                        lua_version=task.lua_version,
-                        priority=task.priority,
-                    ),
-                    Envelope.MessageType.TASK,
-                )
+        worker = await state.worker_manager.get()
+        print(f"分发任务{task.task_id}至节点{worker.registration.name}")
+        await worker.websocket.send_bytes(
+            proto2bytes(
+                TaskProto(
+                    task_id=task.task_id,
+                    code=task.code,
+                    args=json.dumps(task.args),
+                    lua_version=task.lua_version,
+                    priority=task.priority,
+                ),
+                Envelope.MessageType.TASK,
             )
+        )

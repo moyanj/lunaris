@@ -1,44 +1,143 @@
 # core.py
-from multiprocessing import Pool
-from typing import Optional, Callable
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
+from typing import Optional, Callable, Any, Tuple
 import psutil
 from lunaris.proto.task_pb2 import Task
 from lunaris.runtime import LuaSandbox, LuaVersion
 from lunaris.runtime.engine import LuaResult
+import json
+import functools
+import multiprocessing  # 导入multiprocessing模块
+import logging
+
+
+# ----------------------------------------------------------------------
+# 独立的、顶级的函数，用于在子进程中执行Lua任务
+# ----------------------------------------------------------------------
+def _execute_task_in_subprocess(
+    code: str,
+    args: list,
+    lua_version_int: int,
+    task_id: str,
+    result_queue: multiprocessing.Queue,
+):
+    """
+    在子进程中执行Lua代码。这是一个独立的函数。
+
+    Args:
+        code: Lua代码字符串。
+        args: 传递给Lua脚本的参数列表。
+        lua_version_int: Lua版本枚举的整数值（从Task.LuaVersion获取）。
+        task_id: 任务ID。
+        result_queue: 用于将结果传回主进程的multiprocessing.Queue。
+    """
+    print(f"执行任务 {task_id} (在子进程中)")
+    try:
+        # 将protobuf枚举值转换为LuaVersion枚举
+        version_name = Task.LuaVersion.Name(lua_version_int)
+        version = getattr(LuaVersion, version_name, None)
+        if version is None:
+            raise ValueError(f"不支持的Lua版本: {lua_version_int} ({version_name})")
+
+        lua = LuaSandbox(version)
+        result = lua.run(code, *args)
+        # 将结果和任务ID放入队列
+        result_queue.put((result, task_id))
+        print(f"任务 {task_id} 执行完毕 (在子进程中)")
+    except Exception as e:
+        pass
 
 
 class Runner:
     def __init__(
-        self, max_workers: Optional[int] = None, callback: Optional[Callable] = None
+        self, max_workers: int, report_callback: Callable[[LuaResult, str], Any]
     ):
-        self.max_workers = max_workers or psutil.cpu_count()
-        self.executor = Pool(self.max_workers)
-        self.num_running = 0
-        self.result = []
-        self.callback = callback
+        """
+        初始化Runner。
 
-    def task_completed(self, result_tuple):
-        """Handle task completion and invoke the callback"""
-        result, task_id = result_tuple
-        self.num_running -= 1
-        if self.callback:
-            self.callback(task_id, result)
-
-    def submit(self, task: Task):
-        self.executor.apply_async(
-            self.worker,
-            (task.code, task.args, task.lua_version, task.task_id),
-            callback=self.task_completed,
+        Args:
+            max_workers: 最大工作进程数。如果为0或None，则使用CPU核心数。
+            report_callback: 一个异步回调函数，用于报告任务结果。
+                             签名应为 `async def report_func(result: LuaResult, task_id: str): ...`
+        """
+        self.max_workers = (
+            max_workers if max_workers and max_workers > 0 else psutil.cpu_count()
         )
-        self.num_running += 1
+        self.manager = multiprocessing.Manager()
+        self.result_queue = self.manager.Queue()  # 用于子进程向主进程发送结果
 
-    def worker(self, code: str, args: str, lua_version: Task.LuaVersion, task_id: str):
+        self.executor = ProcessPoolExecutor(max_workers=self.max_workers)
+        self.report_callback = report_callback  # 存储异步报告函数
 
-        version = getattr(LuaVersion, Task.LuaVersion.Name(lua_version))
-        if version is None:
-            raise ValueError(f"Invalid lua version: {lua_version}")
-        lua = LuaSandbox(version)
-        return lua.run(code, *args), task_id
+        # 用于控制结果监听循环的标志
+        self._listener_task: Optional[asyncio.Task] = None
+        self._running = False
 
-    def close(self):
-        self.executor.close()
+    def start(self):
+        """
+        启动Runner，包括启动结果监听任务。
+        """
+        if self._running:
+            return
+        self._running = True
+        print("启动Runner结果监听任务...")
+        # 在事件循环中创建一个异步任务来持续监听结果
+        self._listener_task = asyncio.create_task(self._listen_for_results())
+
+    async def _listen_for_results(self):
+        """
+        持续监听multiprocessing.Queue中的结果，并在收到时调用报告回调。
+        """
+        while self._running:
+            try:
+                # 尝试从队列中获取结果，非阻塞地检查
+                if not self.result_queue.empty():
+                    result, task_id = self.result_queue.get()
+                    print(f"主进程从队列收到结果 - 任务ID: {task_id}")
+                    # 在这里调用异步报告回调函数
+                    await self.report_callback(result, task_id)
+                else:
+                    # 如果队列为空，短暂休眠，避免忙等待
+                    await asyncio.sleep(0.01)
+            except Exception as e:
+                pass
+
+    def submit(self, task: Task) -> None:
+        """
+        提交一个Lua任务到执行器。
+
+        Args:
+            task: 待执行的任务对象。
+        """
+        print(f"提交任务 {task.task_id}")
+        try:
+            args = json.loads(task.args)
+        except json.JSONDecodeError:
+            args = []
+
+        self.executor.submit(
+            _execute_task_in_subprocess,
+            task.code,
+            args,
+            task.lua_version,
+            task.task_id,
+            self.result_queue,  # 将共享队列传递给子进程
+        )
+        print(f"任务 {task.task_id} 已提交到执行器。")
+
+    async def close(self):
+        """
+        关闭执行器，等待所有提交的任务完成，并停止结果监听。
+        """
+        print("关闭Runner执行器...")
+        self.executor.shutdown(wait=True)  # 等待所有子进程任务完成
+
+        # 停止结果监听任务
+        if self._listener_task:
+            self._running = False  # 设置标志以退出循环
+            await self._listener_task  # 等待监听任务完成
+            self._listener_task = None
+
+        # 关闭Manager以释放资源
+        self.manager.shutdown()

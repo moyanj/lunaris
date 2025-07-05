@@ -1,6 +1,7 @@
 from typing import Optional
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
+from lunaris import worker
 from lunaris.proto.task_pb2 import (
     NodeRegistration,
     NodeRegistrationReply,
@@ -45,6 +46,7 @@ class WorkerManager:
     def __init__(self):
         self.workers: list[Worker] = []
         self.result = {}
+        self.condition = asyncio.Condition()
 
     async def register(self, ws: WebSocket, registration: NodeRegistration):
         worker = Worker(ws, registration)
@@ -67,6 +69,27 @@ class WorkerManager:
             if worker.node_id == node_id:
                 return worker
 
+    async def get(self):
+        async with self.condition:
+            idle_workers = []
+            for i in self.workers:
+                if i.status and i.status.status == NodeStatus.NodeState.IDLE:
+                    idle_workers.append(i)
+            low_worker: list[Worker] = sorted(
+                idle_workers, key=lambda x: x.status.current_task  # type: ignore
+            )
+            while len(low_worker) == 0:
+                await self.condition.wait()
+                # 可能需要重新计算 idle_workers 和 low_worker
+                idle_workers = []
+                for i in self.workers:
+                    if i.status and i.status.status == NodeStatus.NodeState.IDLE:
+                        idle_workers.append(i)
+                low_worker = sorted(
+                    idle_workers, key=lambda x: x.status.current_task  # type: ignore
+                )
+            return low_worker[0]
+
     async def close(self):
         for worker in self.workers:
             if worker.websocket.client_state != WebSocketState.DISCONNECTED:
@@ -78,6 +101,8 @@ class WorkerManager:
                 w.last_heartbeat = datetime.now()
                 w.status = status
                 break
+        async with self.condition:
+            self.condition.notify_all()
 
     async def remove_inactive_workers(self):
         cutoff_time = datetime.now() - timedelta(seconds=20)
