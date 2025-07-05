@@ -55,8 +55,6 @@ class Worker:
             raise ConnectionError("WebSocket连接未建立")
         print("心跳任务启动")
         while self.running:
-            await asyncio.sleep(10)
-
             state = NodeStatus.NodeState.IDLE
             if self.num_running == self.max_concurrency:
                 state = NodeStatus.NodeState.BUSY
@@ -70,7 +68,9 @@ class Worker:
                     )
                 )
             )
+
             print(f"{self.node_id} {state}")
+            await asyncio.sleep(10)
 
     async def disconnect(self) -> None:
         """关闭连接"""

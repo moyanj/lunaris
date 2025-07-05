@@ -23,9 +23,12 @@ def get_app_state() -> AppState:
 
 @asynccontextmanager
 async def lifecycle(app: FastAPI):
+    from lunaris.master.api import app as api
+
     app.state.state = AppState()
     asyncio.create_task(check_heartbeat(app.state.state))
     asyncio.create_task(destribute_tasks(app.state.state))
+    app.include_router(api)
     yield
     await app.state.state.close()
 

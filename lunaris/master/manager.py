@@ -7,7 +7,7 @@ from lunaris.proto.task_pb2 import (
     TaskResult,
     NodeStatus,
 )
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import secrets
 from lunaris.utils import bytes2proto, proto2bytes
 from datetime import datetime, timedelta
@@ -19,7 +19,7 @@ import asyncio
 class Worker:
     websocket: WebSocket
     registration: NodeRegistration
-    node_id: str = secrets.token_hex(16)
+    node_id: str = field(default_factory=lambda: secrets.token_hex(16))
     last_heartbeat: datetime = datetime.now()
     status: Optional[NodeStatus] = None
 
