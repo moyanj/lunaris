@@ -2,8 +2,13 @@ import asyncio
 from fastapi import FastAPI, WebSocket, Depends
 from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.utils import bytes2proto, proto2bytes
-from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task as TaskProto
-from lunaris.master.manager import WorkerManager, TaskManager
+from lunaris.proto.task_pb2 import (
+    Envelope,
+    NodeRegistration,
+    NodeStatus,
+    Task as TaskProto,
+)
+from lunaris.master.manager import Worker, WorkerManager, TaskManager
 from lunaris.core.model import Task
 from contextlib import asynccontextmanager
 import json
@@ -74,18 +79,23 @@ async def destribute_tasks(state: AppState):
         task: Task = await state.task_manager.get()
         idle_worker = []
         for worker in state.worker_manager.workers:
-            if worker.status == NodeStatus.NodeState.IDLE:
+
+            if worker.status and worker.status.status == NodeStatus.NodeState.IDLE:
                 idle_worker.append(worker)
 
-        low_worker: list = sorted(idle_worker, key=lambda x: x.current_task)
-        await low_worker[0].websocket.send(
-            proto2bytes(
-                TaskProto(
-                    task_id=task.task_id,
-                    code=task.code,
-                    args=json.dumps(task.args),
-                    lua_version=task.lua_version,
-                    priority=task.priority,
+        low_worker: list[Worker] = sorted(
+            idle_worker, key=lambda x: x.status.current_task
+        )
+        if len(low_worker) > 0:
+            await low_worker[0].websocket.send_bytes(
+                proto2bytes(
+                    TaskProto(
+                        task_id=task.task_id,
+                        code=task.code,
+                        args=json.dumps(task.args),
+                        lua_version=task.lua_version,
+                        priority=task.priority,
+                    ),
+                    Envelope.MessageType.TASK,
                 )
             )
-        )

@@ -8,7 +8,28 @@ from lunaris.proto.task_pb2 import (
     NodeRegistrationReply,
 )
 from google.protobuf.message import Message
-from typing import Any, Type
+from typing import Any, Optional, Type
+from fastapi.responses import JSONResponse
+
+
+def Rest(msg: str = "OK", status_code: int = 200, data=None):
+    """Rest
+
+    Keyword Arguments:
+        msg -- 消息 (default: {"OK"})
+        status_code -- 状态码 (default: {200})
+        data -- 数据 (default: {None})
+
+    Returns:
+        处理后的返回字符串
+    """
+    ret_dict = {"msg": msg, "code": status_code, "data": data}
+    req = JSONResponse(ret_dict)
+    req.status_code = status_code
+    req.headers["Content-Type"] = "application/json; charset=utf-8"
+
+    return req
+
 
 # 类型映射表：将Envelope.MessageType映射到对应的proto类
 MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
@@ -24,6 +45,7 @@ MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
 CLASS_TO_MESSAGE_TYPE: dict[Type[Message], Envelope.MessageType] = {
     v: k for k, v in MESSAGE_TYPE_MAP.items()
 }
+print(CLASS_TO_MESSAGE_TYPE)
 
 
 def bytes2proto(
@@ -39,12 +61,15 @@ def bytes2proto(
     return message_class.FromString(envelope.payload)
 
 
-def proto2bytes(obj: Any) -> bytes:
+def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
     """将proto对象转换为字节数据"""
-    message_type = CLASS_TO_MESSAGE_TYPE.get(type(obj))
-
-    if not message_type:
-        raise TypeError(f"Unknown message type: {type(obj)}")
+    # 检查是否是protobuf对象
+    if type is None:
+        message_type = CLASS_TO_MESSAGE_TYPE.get(obj.__class__)
+        if not message_type:
+            raise TypeError(f"Unknown message type: {obj.__class__}")
+    else:
+        message_type = type
 
     envelope = Envelope()
     envelope.type = message_type

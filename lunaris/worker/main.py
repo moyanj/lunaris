@@ -29,20 +29,8 @@ class Worker:
         self.ws: Optional[ClientConnection] = None
 
         # 任务执行器
-        self._init_lua_version_mapping()
         self.executor: Optional[Pool] = None  # type: ignore
         self.num_running = 0
-
-    def _init_lua_version_mapping(self) -> None:
-        """初始化Lua版本映射表"""
-        self.lua_proto2engine: Dict[Task.LuaVersion, LuaVersion] = {
-            Task.LuaVersion.Lua54: LuaVersion.LUA_54,
-            Task.LuaVersion.Lua53: LuaVersion.LUA_53,
-            Task.LuaVersion.Lua52: LuaVersion.LUA_52,
-            Task.LuaVersion.Lua51: LuaVersion.LUA_51,
-            Task.LuaVersion.LuaJIT20: LuaVersion.LUA_JIT_20,
-            Task.LuaVersion.LuaJIT21: LuaVersion.LUA_JIT_21,
-        }
 
     async def connect(self) -> None:
         """建立与Master的WebSocket连接"""
@@ -69,7 +57,6 @@ class Worker:
                 )
             )
 
-            print(f"{self.node_id} {state}")
             await asyncio.sleep(10)
 
     async def disconnect(self) -> None:
@@ -87,7 +74,7 @@ class Worker:
             raise ConnectionError("WebSocket未连接")
 
         registration = NodeRegistration(
-            hostname=self.name,
+            name=self.name,
             os=platform.system(),
             arch=platform.machine(),
             max_concurrency=self.max_concurrency,
@@ -120,7 +107,7 @@ class Worker:
         self, code: str, args: str, lua_version: Task.LuaVersion, task_id: str
     ) -> Tuple[LuaResult, str]:
         """实际执行任务的函数(在子进程中运行)"""
-        version = self.lua_proto2engine.get(lua_version)
+        version = getattr(LuaVersion, Task.LuaVersion.Name(lua_version))
         if version is None:
             raise ValueError(f"不支持的Lua版本: {lua_version}")
 

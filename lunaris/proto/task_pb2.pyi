@@ -31,18 +31,18 @@ class Task(_message.Message):
     __slots__ = ("task_id", "code", "args", "lua_version", "priority")
     class LuaVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        Lua54: _ClassVar[Task.LuaVersion]
-        Lua51: _ClassVar[Task.LuaVersion]
-        Lua52: _ClassVar[Task.LuaVersion]
-        Lua53: _ClassVar[Task.LuaVersion]
-        LuaJIT20: _ClassVar[Task.LuaVersion]
-        LuaJIT21: _ClassVar[Task.LuaVersion]
-    Lua54: Task.LuaVersion
-    Lua51: Task.LuaVersion
-    Lua52: Task.LuaVersion
-    Lua53: Task.LuaVersion
-    LuaJIT20: Task.LuaVersion
-    LuaJIT21: Task.LuaVersion
+        LUA_54: _ClassVar[Task.LuaVersion]
+        LUA_51: _ClassVar[Task.LuaVersion]
+        LUA_52: _ClassVar[Task.LuaVersion]
+        LUA_53: _ClassVar[Task.LuaVersion]
+        LUA_JIT_20: _ClassVar[Task.LuaVersion]
+        LUA_JIT_21: _ClassVar[Task.LuaVersion]
+    LUA_54: Task.LuaVersion
+    LUA_51: Task.LuaVersion
+    LUA_52: Task.LuaVersion
+    LUA_53: Task.LuaVersion
+    LUA_JIT_20: Task.LuaVersion
+    LUA_JIT_21: Task.LuaVersion
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     CODE_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
@@ -108,20 +108,20 @@ class NodeStatus(_message.Message):
     def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., current_task: _Optional[int] = ...) -> None: ...
 
 class NodeRegistration(_message.Message):
-    __slots__ = ("hostname", "os", "arch", "max_concurrency", "num_cpu", "memory_size")
-    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("name", "os", "arch", "max_concurrency", "num_cpu", "memory_size")
+    NAME_FIELD_NUMBER: _ClassVar[int]
     OS_FIELD_NUMBER: _ClassVar[int]
     ARCH_FIELD_NUMBER: _ClassVar[int]
     MAX_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
     NUM_CPU_FIELD_NUMBER: _ClassVar[int]
     MEMORY_SIZE_FIELD_NUMBER: _ClassVar[int]
-    hostname: str
+    name: str
     os: str
     arch: str
     max_concurrency: int
     num_cpu: int
     memory_size: int
-    def __init__(self, hostname: _Optional[str] = ..., os: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., num_cpu: _Optional[int] = ..., memory_size: _Optional[int] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., os: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., num_cpu: _Optional[int] = ..., memory_size: _Optional[int] = ...) -> None: ...
 
 class NodeRegistrationReply(_message.Message):
     __slots__ = ("node_id",)

@@ -14,14 +14,6 @@ class Runner:
         self.max_workers = max_workers or psutil.cpu_count()
         self.executor = Pool(self.max_workers)
         self.num_running = 0
-        self.lua_proto2engine = {
-            Task.LuaVersion.Lua54: LuaVersion.LUA_54,
-            Task.LuaVersion.Lua53: LuaVersion.LUA_53,
-            Task.LuaVersion.Lua52: LuaVersion.LUA_52,
-            Task.LuaVersion.Lua51: LuaVersion.LUA_51,
-            Task.LuaVersion.LuaJIT20: LuaVersion.LUA_JIT_20,
-            Task.LuaVersion.LuaJIT21: LuaVersion.LUA_JIT_21,
-        }
         self.result = []
         self.callback = callback
 
@@ -41,7 +33,8 @@ class Runner:
         self.num_running += 1
 
     def worker(self, code: str, args: str, lua_version: Task.LuaVersion, task_id: str):
-        version = self.lua_proto2engine.get(lua_version)
+
+        version = getattr(LuaVersion, Task.LuaVersion.Name(lua_version))
         if version is None:
             raise ValueError(f"Invalid lua version: {lua_version}")
         lua = LuaSandbox(version)

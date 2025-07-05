@@ -23,6 +23,23 @@ class Worker:
     last_heartbeat: datetime = datetime.now()
     status: Optional[NodeStatus] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "node_id": self.node_id,
+            "last_heartbeat": self.last_heartbeat.isoformat(),
+            "status": {
+                "current_task": self.status.current_task if self.status else None
+            },
+            "registration": {
+                "name": self.registration.name,
+                "os": self.registration.os,
+                "arch": self.registration.arch,
+                "max_concurrency": self.registration.max_concurrency,
+                "num_cpu": self.registration.num_cpu,
+                "memory_size": self.registration.memory_size,
+            },
+        }
+
 
 class WorkerManager:
     def __init__(self):
@@ -31,7 +48,7 @@ class WorkerManager:
 
     async def register(self, ws: WebSocket, registration: NodeRegistration):
         worker = Worker(ws, registration)
-        print(f"Registering worker {registration.hostname}")
+        print(f"Registering worker {registration.name}")
         self.workers.append(worker)
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
 
@@ -58,7 +75,6 @@ class WorkerManager:
     async def handle_heartbeat(self, worker: WebSocket, status: NodeStatus):
         for w in self.workers:
             if w.websocket == worker:
-                print(f"Heartbeat from {w.node_id}")
                 w.last_heartbeat = datetime.now()
                 w.status = status
                 break

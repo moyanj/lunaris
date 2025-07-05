@@ -25,12 +25,12 @@ message Task {
   int32 priority = 5;         // 优先级
 
   enum LuaVersion {
-    Lua54 = 0;
-    Lua51 = 1;
-    Lua52 = 2;
-    Lua53 = 3;
-    LuaJIT20 = 4;
-    LuaJIT21 = 5;
+    LUA_54 = 0;
+    LUA_51 = 1;
+    LUA_52 = 2;
+    LUA_53 = 3;
+    LUA_JIT_20 = 4;
+    LUA_JIT_21 = 5;
   }
 }
 
@@ -72,7 +72,7 @@ message NodeStatus {
 
 // ========== 节点注册消息 ==========
 message NodeRegistration {
-  string hostname = 1;       // 主机名
+  string name = 1;           // 主机名
   string os = 2;             // 操作系统
   string arch = 3;           // 处理器架构
   int32 max_concurrency = 4; // 最大并发任务数
