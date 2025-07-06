@@ -20,3 +20,19 @@ class Task(BaseModel):
             "lua_version": self.lua_version,
             "priority": self.priority,
         }
+
+    def __lt__(self, other):
+        me = (-self.priority, self.task_id)
+        them = (-other.priority, other.task_id)
+        if me < them:
+            return True
+        else:
+            return False
+
+    def __gt__(self, other):
+        me = (-self.priority, self.task_id)
+        them = (-other.priority, other.task_id)
+        if me > them:
+            return True
+        else:
+            return False

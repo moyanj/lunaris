@@ -116,8 +116,6 @@ class TaskManager:
 
     def add_task(self, task: Task) -> None:
         self.task_queue.put_nowait(task)
-        # 维护一个同步列表，用于 list_all_tasks，因为它需要所有任务
-        # 注意：这个列表的排序需要单独维护或者在获取时重新排序
         self._tasks_list.append(task)
         # 为了保持 _tasks_list 的一致性，每次添加后都排序
         self._sort_tasks_list()
