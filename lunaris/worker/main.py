@@ -6,7 +6,7 @@ from typing import Optional
 from websockets import ConnectionClosedError, State
 from websockets.asyncio.client import connect, ClientConnection
 from lunaris.utils import proto2bytes, bytes2proto
-from lunaris.proto.task_pb2 import (
+from lunaris.proto.worker_pb2 import (
     NodeRegistration,
     NodeStatus,
     Task,

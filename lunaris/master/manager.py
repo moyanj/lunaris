@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
-from lunaris.proto.task_pb2 import (
+from lunaris.proto.worker_pb2 import (
     NodeRegistration,
     NodeRegistrationReply,
     TaskResult,

@@ -3,12 +3,12 @@ from webbrowser import get
 from fastapi import FastAPI, WebSocket, Depends
 from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.utils import bytes2proto, proto2bytes
-from lunaris.proto.task_pb2 import (
+from lunaris.proto.worker_pb2 import (
     Envelope,
     NodeRegistration,
     Task as TaskProto,
 )
-import lunaris.proto.task_pb2 as task_pb2
+import lunaris.proto.worker_pb2 as worker_pb2
 from lunaris.master.manager import WorkerManager, TaskManager
 from lunaris.master.model import Task
 from contextlib import asynccontextmanager
@@ -56,11 +56,11 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         while True and ws.client_state == WebSocketState.CONNECTED:
             data = await ws.receive_bytes()
             data = bytes2proto(data)
-            if type(data) == task_pb2.NodeStatus:
+            if type(data) == worker_pb2.NodeStatus:
                 await state.worker_manager.handle_heartbeat(ws, data)
-            elif type(data) == task_pb2.TaskResult:
+            elif type(data) == worker_pb2.TaskResult:
                 state.task_manager.put_result(data)
-            elif type(data) == task_pb2.UnregisterNode:
+            elif type(data) == worker_pb2.UnregisterNode:
                 for w in state.worker_manager.workers:
                     if w.node_id == data.node_id:
                         state.worker_manager.workers.remove(w)

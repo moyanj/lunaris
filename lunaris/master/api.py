@@ -3,7 +3,6 @@ from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
 from lunaris.utils import Rest
 from pydantic import BaseModel, Field
-from lunaris.proto.task_pb2 import Task as TaskProto
 import json
 
 app = APIRouter()

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package lunaris.common;
+
+enum LuaVersion {
+  LUA_54 = 0;
+  LUA_51 = 1;
+  LUA_52 = 2;
+  LUA_53 = 3;
+  LUA_JIT_20 = 4;
+  LUA_JIT_21 = 5;
+}
+
+message TaskResult {
+  string task_id = 1; // 对应任务ID
+  string result = 2;  // 结果（JSON格式）
+  string stdout = 3;  // 标准输出
+  string stderr = 4;  // 错误输出
+  double time = 5;    // 运行时间（毫秒）
+  bool succeeded = 6; // 是否成功
+}
