@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
 from lunaris.utils import Rest
@@ -24,12 +24,20 @@ async def get_workers(state: AppState = Depends(get_app_state)):
 
 @app.get("/task")
 async def get_tasks(type: str = "waiting", state: AppState = Depends(get_app_state)):
-    if type == "waiting":
-        tasks = state.task_manager.all()
-    elif type == "running":
-        tasks = [task for task in state.task_manager.running_tasks.values()]
-    tasks = state.task_manager.all()
-    return Rest(data={"count": len(tasks), "tasks": [t.to_dict() for t in tasks]})
+    tasks = []
+    if type == "waiting" or type == "all":
+        for task in state.task_manager.all():
+            task = task.to_dict()
+            task["status"] = "waiting"
+            tasks.append(task)
+    elif type == "running" or type == "all":
+        for task in state.task_manager.running_tasks.values():
+            task = task.to_dict()
+            task["status"] = "running"
+            tasks.append(task)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid type")
+    return Rest(data={"count": len(tasks), "tasks": tasks})
 
 
 @app.post("/task")
@@ -44,7 +52,7 @@ async def add_task(task: TaskModel, state: AppState = Depends(get_app_state)):
     return Rest(data=task_r.to_dict())
 
 
-@app.get("/task/result/{task_id}")
+@app.get("/task/{task_id}")
 async def get_task_result(task_id: str, state: AppState = Depends(get_app_state)):
     result = state.worker_manager.result.get(task_id)
     if result is None:
