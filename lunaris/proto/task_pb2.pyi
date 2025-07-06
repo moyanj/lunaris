@@ -56,18 +56,20 @@ class Task(_message.Message):
     def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., args: _Optional[str] = ..., lua_version: _Optional[_Union[Task.LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
 
 class TaskResult(_message.Message):
-    __slots__ = ("task_id", "result", "stdout", "stderr", "time")
+    __slots__ = ("task_id", "result", "stdout", "stderr", "time", "succeeded")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
     STDOUT_FIELD_NUMBER: _ClassVar[int]
     STDERR_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
+    SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
     task_id: str
     result: str
     stdout: str
     stderr: str
     time: float
-    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ...) -> None: ...
+    succeeded: bool
+    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ..., succeeded: bool = ...) -> None: ...
 
 class ControlCommand(_message.Message):
     __slots__ = ("type", "data")

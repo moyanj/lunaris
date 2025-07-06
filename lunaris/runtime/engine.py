@@ -25,6 +25,7 @@ class LuaResult:
     stdout: str
     stderr: str
     time: float
+    succeeded: bool = True
 
 
 class LuaSandbox:

@@ -1,4 +1,5 @@
 import asyncio
+from webbrowser import get
 from fastapi import FastAPI, WebSocket, Depends
 from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.utils import bytes2proto, proto2bytes
@@ -7,8 +8,9 @@ from lunaris.proto.task_pb2 import (
     NodeRegistration,
     Task as TaskProto,
 )
+import lunaris.proto.task_pb2 as task_pb2
 from lunaris.master.manager import WorkerManager, TaskManager
-from lunaris.core.model import Task
+from lunaris.master.model import Task
 from contextlib import asynccontextmanager
 import json
 from loguru import logger
@@ -53,7 +55,14 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
 
         while True:
             data = await ws.receive_bytes()
-            await state.worker_manager.dispatch(ws, data)
+            data = bytes2proto(data)
+            if type(data) == task_pb2.NodeStatus:
+                await state.worker_manager.handle_heartbeat(ws, data)
+            elif type(data) == task_pb2.TaskResult:
+                state.task_manager.put_result(data)
+            else:
+                await ws.send_text("Invalid message")
+                await ws.close()
     except WebSocketDisconnect:
         logger.warning("A worker disconnected")
     except Exception as e:
@@ -87,7 +96,7 @@ async def destribute_tasks(state: AppState):
                     task_id=task.task_id,
                     code=task.code,
                     args=json.dumps(task.args),
-                    lua_version=task.lua_version,
+                    lua_version=TaskProto.LuaVersion.Value(task.lua_version),  # type: ignore
                     priority=task.priority,
                 ),
                 Envelope.MessageType.TASK,

@@ -23,7 +23,11 @@ async def get_workers(state: AppState = Depends(get_app_state)):
 
 
 @app.get("/task")
-async def get_tasks(state: AppState = Depends(get_app_state)):
+async def get_tasks(type: str = "waiting", state: AppState = Depends(get_app_state)):
+    if type == "waiting":
+        tasks = state.task_manager.all()
+    elif type == "running":
+        tasks = [task for task in state.task_manager.running_tasks.values()]
     tasks = state.task_manager.all()
     return Rest(data={"count": len(tasks), "tasks": [t.to_dict() for t in tasks]})
 

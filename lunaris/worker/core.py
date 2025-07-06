@@ -37,11 +37,20 @@ def _execute_task(
 
         lua = LuaSandbox(version)
         result = lua.run(code, *args)
+        raise TypeError("TEST")
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id))
         logger.info(f"Task {task_id} has been completed.")
+
     except Exception as e:
-        pass
+        result = LuaResult(
+            result=None,
+            stdout="",
+            stderr=str(e),
+            time=0,
+            succeeded=False,
+        )
+        result_queue.put((result, task_id))
 
 
 class Runner:

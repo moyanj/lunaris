@@ -1,5 +1,6 @@
 import sys
 from loguru import logger
+from lunaris.utils import IDGenerator
 
 logger.remove()
 console_format = (
@@ -15,3 +16,5 @@ logger.add(
     colorize=True,
     enqueue=True,
 )
+
+id_gen = IDGenerator(0)

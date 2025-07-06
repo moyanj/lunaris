@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 import secrets
 from lunaris.utils import bytes2proto, proto2bytes
 from datetime import datetime, timedelta
-from lunaris.core.model import Task
+from lunaris.master.model import Task
 import asyncio
 from loguru import logger
 
@@ -53,18 +53,6 @@ class WorkerManager:
         logger.info(f"Registering worker: {registration.name}")
         self.workers.append(worker)
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
-
-    async def dispatch(self, worker: WebSocket, data: bytes):
-        data = bytes2proto(data)
-        if type(data) == TaskResult:
-            logger.info(f"Received the execution result of {data.task_id}")
-            logger.debug(data)
-            self.result[data.task_id] = data
-        elif type(data) == NodeStatus:
-            await self.handle_heartbeat(worker, data)
-        else:
-            await worker.send_text("Invalid message")
-            await worker.close()
 
     def get_worker(self, node_id: str):
         for worker in self.workers:
@@ -120,12 +108,11 @@ class TaskManager:
     def __init__(self):
         self.task_queue: asyncio.PriorityQueue[Task] = asyncio.PriorityQueue()
         self._tasks_list: list[Task] = []
+        self.running_tasks = {}
+        self._result = {}
+        self.failed_count = {}
 
     def add_task(self, task: Task) -> None:
-        """
-        添加一个任务。
-        这是一个同步方法，它将任务放入异步队列中。
-        """
         self.task_queue.put_nowait(task)
         # 维护一个同步列表，用于 list_all_tasks，因为它需要所有任务
         # 注意：这个列表的排序需要单独维护或者在获取时重新排序
@@ -139,7 +126,7 @@ class TaskManager:
         用于维护 self._tasks_list 的顺序。
         """
         # 注意这里使用原始的 importance 和 timestamp 进行排序
-        self._tasks_list.sort(key=lambda t: (-t.priority, t.timestamp))
+        self._tasks_list.sort(key=lambda t: (-t.priority, t.task_id))
 
     async def get(self) -> Task:
         """
@@ -152,6 +139,7 @@ class TaskManager:
 
         if task in self._tasks_list:
             self._tasks_list.remove(task)
+            self.running_tasks[task.task_id] = task
         return task
 
     def all(self) -> list[Task]:
@@ -161,3 +149,46 @@ class TaskManager:
         """
         # _tasks_list 已经在 add_task 中维护了排序
         return self._tasks_list[:]  # 返回副本，防止外部修改
+
+    def put_result(self, result: TaskResult) -> None:
+        """
+        处理任务执行结果，包括成功、失败重试和永久失败。
+        """
+        logger.debug(f"处理任务结果: {result}")
+        # 在正在运行的任务集合中查找对应的任务对象
+        task_to_process = self.running_tasks.get(result.task_id)
+
+        if not task_to_process:
+            logger.warning(f"收到了一个不在运行列表中的任务结果: {result.task_id}")
+            return
+
+        # 任务已结束（无论成功或失败），将其从运行集合中移除
+        self.running_tasks.pop(result.task_id)
+        if result.succeeded:
+            # 任务成功，存储最终结果
+            self._result[result.task_id] = result
+            logger.info(f"任务 {result.task_id} 成功完成。")
+            # 如果任务之前有失败记录，清理掉
+            if result.task_id in self.failed_count:
+                del self.failed_count[result.task_id]
+        else:
+            # 任务失败，增加失败计数
+            failure_count = self.failed_count.get(result.task_id, 0) + 1
+            self.failed_count[result.task_id] = failure_count
+
+            logger.error(
+                f"任务 {result.task_id} 失败 (第 {failure_count} 次): {result.stderr}"
+            )
+
+            if failure_count >= 3:
+                # 达到最大重试次数，标记为永久失败并存储结果
+                logger.error(
+                    f"任务 {result.task_id} 已达到最大重试次数，标记为永久失败。"
+                )
+                self._result[result.task_id] = result
+                # 清理失败计数
+                del self.failed_count[result.task_id]
+            else:
+                # 未达到最大重试次数，将任务重新加入队列
+                logger.info(f"任务 {result.task_id} 将被重新加入队列进行重试。")
+                self.add_task(task_to_process)

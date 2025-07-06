@@ -10,6 +10,8 @@ from lunaris.proto.task_pb2 import (
 from google.protobuf.message import Message
 from typing import Any, Optional, Type
 from fastapi.responses import JSONResponse
+import time
+import threading
 
 
 def Rest(msg: str = "OK", status_code: int = 200, data=None):
@@ -74,3 +76,49 @@ def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
     envelope.type = message_type
     envelope.payload = obj.SerializeToString()
     return envelope.SerializeToString()
+
+
+class IDGenerator:
+    ID_BITS = 10
+    SEQUENCE_BITS = 12
+    MAX_ID = -1 ^ (-1 << ID_BITS)
+    ID_SHIFT = SEQUENCE_BITS
+    TIMESTAMP_SHIFT = SEQUENCE_BITS + ID_BITS
+    SEQUENCE_MASK = -1 ^ (-1 << SEQUENCE_BITS)
+    EPOCH = 1718766000000
+
+    def __init__(self, id):
+        if not (0 <= id <= self.MAX_ID):
+            raise ValueError(f"Worker ID must be between 0 and {self.MAX_ID}")
+        self.id = id
+        self.last_timestamp = -1
+        self.sequence = 0
+        self.lock = threading.Lock()
+
+    def get_id(self):
+        with self.lock:
+            timestamp = self._current_millis()
+            if timestamp < self.last_timestamp:
+                raise Exception("Clock moved backwards!")
+            if timestamp == self.last_timestamp:
+                self.sequence = (self.sequence + 1) & self.SEQUENCE_MASK
+                if self.sequence == 0:
+                    timestamp = self._wait_for_next_millis(self.last_timestamp)
+            else:
+                self.sequence = 0
+            self.last_timestamp = timestamp
+            new_id = (
+                ((timestamp - self.EPOCH) << self.TIMESTAMP_SHIFT)
+                | (self.id << self.ID_SHIFT)
+                | self.sequence
+            )
+            return str(new_id)
+
+    def _current_millis(self):
+        return int(time.time() * 1000)
+
+    def _wait_for_next_millis(self, last_timestamp):
+        timestamp = self._current_millis()
+        while timestamp <= last_timestamp:
+            timestamp = self._current_millis()
+        return timestamp

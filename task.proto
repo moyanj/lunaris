@@ -41,6 +41,7 @@ message TaskResult {
   string stdout = 3;  // 标准输出
   string stderr = 4;  // 错误输出
   double time = 5;    // 运行时间（毫秒）
+  bool succeeded = 6; // 是否成功
 }
 
 // ========== 精简控制命令 ==========

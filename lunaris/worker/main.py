@@ -96,6 +96,7 @@ class Worker:
             stdout=result.stdout,
             stderr=result.stderr,
             time=result.time,
+            succeeded=result.succeeded,
         )
         await self.ws.send(proto2bytes(proto))
 
