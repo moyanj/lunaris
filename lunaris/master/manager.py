@@ -19,6 +19,7 @@ import random
 
 @dataclass
 class Worker:
+    __solt__ = ["node_id", "last_heartbeat", "status", "registration"]
     websocket: WebSocket
     registration: NodeRegistration
     node_id: str = field(default_factory=lambda: secrets.token_hex(16))

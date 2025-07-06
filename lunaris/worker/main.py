@@ -97,6 +97,11 @@ class Worker:
         )
         await self.ws.send(proto2bytes(registration))
 
+        response = await self.ws.recv(decode=False)
+        self.node_id = bytes2proto(response).node_id
+
+        logger.info(f"Registered.")
+
     async def report_result(self, result: LuaResult, task_id: str) -> None:
         """向Master报告任务结果"""
         if not self.ws:
@@ -126,11 +131,6 @@ class Worker:
         try:
             await self.connect()
             await self.register()
-
-            # 等待Master分配node_id
-            if self.ws:
-                response = await self.ws.recv(decode=False)
-                self.node_id = bytes2proto(response).node_id
 
             asyncio.create_task(self.heartbeat())
             if self.runner:
