@@ -11,6 +11,7 @@ from lunaris.master.manager import WorkerManager, TaskManager
 from lunaris.core.model import Task
 from contextlib import asynccontextmanager
 import json
+from loguru import logger
 
 
 class AppState:
@@ -54,7 +55,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
             data = await ws.receive_bytes()
             await state.worker_manager.dispatch(ws, data)
     except WebSocketDisconnect:
-        print("Worker disconnected")
+        logger.warning("A worker disconnected")
     except Exception as e:
         print(f"Error with worker connection: {e}")
     finally:
@@ -64,6 +65,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
 
 
 async def check_heartbeat(state: AppState):
+    logger.info("Heartbeat detection task started")
     try:
         while True:
             await asyncio.sleep(20)
@@ -74,10 +76,11 @@ async def check_heartbeat(state: AppState):
 
 # 任务分发
 async def destribute_tasks(state: AppState):
+    logger.info("Task distribution started")
     while True:
         task: Task = await state.task_manager.get()
         worker = await state.worker_manager.get()
-        print(f"分发任务{task.task_id}至节点{worker.registration.name}")
+        logger.info(f"Distribute task {task.task_id} to {worker.registration.name}")
         await worker.websocket.send_bytes(
             proto2bytes(
                 TaskProto(

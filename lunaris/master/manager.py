@@ -13,6 +13,7 @@ from lunaris.utils import bytes2proto, proto2bytes
 from datetime import datetime, timedelta
 from lunaris.core.model import Task
 import asyncio
+from loguru import logger
 
 
 @dataclass
@@ -49,15 +50,15 @@ class WorkerManager:
 
     async def register(self, ws: WebSocket, registration: NodeRegistration):
         worker = Worker(ws, registration)
-        print(f"Registering worker {registration.name}")
+        logger.info(f"Registering worker: {registration.name}")
         self.workers.append(worker)
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
 
     async def dispatch(self, worker: WebSocket, data: bytes):
         data = bytes2proto(data)
         if type(data) == TaskResult:
-            print(f"收到{data.task_id}的执行结果")
-            print(data)
+            logger.info(f"Received the execution result of {data.task_id}")
+            logger.debug(data)
             self.result[data.task_id] = data
         elif type(data) == NodeStatus:
             await self.handle_heartbeat(worker, data)
@@ -109,7 +110,7 @@ class WorkerManager:
         cutoff_time = datetime.now() - timedelta(seconds=20)
         for w in self.workers:
             if w.last_heartbeat < cutoff_time:
-                print(f"Removing inactive worker {w.node_id}")
+                logger.info(f"Removing inactive worker: {w.node_id}")
                 if w.websocket.client_state != WebSocketState.DISCONNECTED:
                     await w.websocket.close()
                 self.workers.remove(w)

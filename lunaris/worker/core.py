@@ -7,6 +7,7 @@ from lunaris.runtime import LuaSandbox, LuaVersion
 from lunaris.runtime.engine import LuaResult
 import json
 import multiprocessing
+from loguru import logger
 
 
 def _execute_task(
@@ -26,7 +27,7 @@ def _execute_task(
         task_id: 任务ID。
         result_queue: 用于将结果传回主进程的multiprocessing.Queue。
     """
-    print(f"执行任务 {task_id} (在子进程中)")
+    logger.info(f"Start executing task: {task_id}")
     try:
         # 将protobuf枚举值转换为LuaVersion枚举
         version_name = Task.LuaVersion.Name(lua_version_int)
@@ -38,7 +39,7 @@ def _execute_task(
         result = lua.run(code, *args)
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id))
-        print(f"任务 {task_id} 执行完毕 (在子进程中)")
+        logger.info(f"Task {task_id} has been completed.")
     except Exception as e:
         pass
 
@@ -70,7 +71,7 @@ class Runner:
         if self._running:
             return
         self._running = True
-        print("启动Runner结果监听任务...")
+
         # 在事件循环中创建一个异步任务来持续监听结果
         self._listener_task = asyncio.create_task(self._listen_results())
 
@@ -78,6 +79,7 @@ class Runner:
         """
         持续监听multiprocessing.Queue中的结果，并在收到时调用报告回调。
         """
+        logger.info("Start the Runner result listening task.")
         while self._running:
             try:
                 # 尝试从队列中获取结果，非阻塞地检查
@@ -99,7 +101,7 @@ class Runner:
         Args:
             task: 待执行的任务对象。
         """
-        print(f"提交任务 {task.task_id}")
+        logger.info(f"Submit task {task.task_id} to the runner")
         try:
             args = json.loads(task.args)
         except json.JSONDecodeError:
@@ -113,13 +115,12 @@ class Runner:
             task.task_id,
             self.result_queue,  # type: ignore 将共享队列传递给子进程
         )
-        print(f"任务 {task.task_id} 已提交到执行器。")
 
     async def close(self):
         """
         关闭执行器，等待所有提交的任务完成，并停止结果监听。
         """
-        print("关闭Runner执行器...")
+        logger.info("Shutting down runner...")
         self.executor.shutdown(wait=True)  # 等待所有子进程任务完成
 
         # 停止结果监听任务

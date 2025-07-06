@@ -9,6 +9,7 @@ from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task, TaskResult
 from lunaris.runtime.engine import LuaResult
 from lunaris.worker.core import Runner
+from loguru import logger
 
 
 class Worker:
@@ -42,7 +43,7 @@ class Worker:
     async def heartbeat(self) -> None:
         if not self.ws:
             raise ConnectionError("WebSocket连接未建立")
-        print("心跳任务启动")
+        logger.info("Heartbeat task started")
         while self.running:
             state = NodeStatus.NodeState.IDLE
             if self.num_running == self.max_concurrency:
@@ -102,9 +103,9 @@ class Worker:
         """处理接收到的任务"""
         if not self.runner:
             raise RuntimeError("执行器未初始化")
-        print("接受任务：", task.task_id)
+        logger.info(f"Received task: {task.task_id}")
         self.num_running += 1
-        print(f"当前运行任务数：{self.num_running}")
+        logger.debug(f"Number of running tasks:{self.num_running}")
         self.runner.submit(task)
 
     async def run(self) -> None:
@@ -130,9 +131,9 @@ class Worker:
                     await self.handle_task(proto)
 
         except (ConnectionError, asyncio.CancelledError) as e:
-            print(f"连接错误: {e}")
+            logger.error(f"Connection error: {e}")
         except ConnectionClosedError:
-            print("连接已关闭")
+            logger.warning("Connection closed")
         finally:
             await self.shutdown()
 
