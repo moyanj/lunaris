@@ -15,12 +15,14 @@ class Envelope(_message.Message):
         NODE_STATUS: _ClassVar[Envelope.MessageType]
         NODE_REGISTRATION: _ClassVar[Envelope.MessageType]
         NODE_REGISTRATION_REPLY: _ClassVar[Envelope.MessageType]
+        UNREGISTER_NODE: _ClassVar[Envelope.MessageType]
     TASK: Envelope.MessageType
     TASK_RESULT: Envelope.MessageType
     CONTROL_COMMAND: Envelope.MessageType
     NODE_STATUS: Envelope.MessageType
     NODE_REGISTRATION: Envelope.MessageType
     NODE_REGISTRATION_REPLY: Envelope.MessageType
+    UNREGISTER_NODE: Envelope.MessageType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     type: Envelope.MessageType
@@ -118,6 +120,12 @@ class NodeRegistration(_message.Message):
     def __init__(self, name: _Optional[str] = ..., os: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., num_cpu: _Optional[int] = ..., memory_size: _Optional[int] = ...) -> None: ...
 
 class NodeRegistrationReply(_message.Message):
+    __slots__ = ("node_id",)
+    NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    node_id: str
+    def __init__(self, node_id: _Optional[str] = ...) -> None: ...
+
+class UnregisterNode(_message.Message):
     __slots__ = ("node_id",)
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
     node_id: str

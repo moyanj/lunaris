@@ -154,12 +154,14 @@ class TaskManager:
         """
         处理任务执行结果，包括成功、失败重试和永久失败。
         """
-        logger.debug(f"处理任务结果: {result}")
+        logger.debug(f"Task Result: {result}")
         # 在正在运行的任务集合中查找对应的任务对象
         task_to_process = self.running_tasks.get(result.task_id)
 
         if not task_to_process:
-            logger.warning(f"收到了一个不在运行列表中的任务结果: {result.task_id}")
+            logger.warning(
+                f"Received a task result that is not in running: {result.task_id}"
+            )
             return
 
         # 任务已结束（无论成功或失败），将其从运行集合中移除
@@ -167,7 +169,7 @@ class TaskManager:
         if result.succeeded:
             # 任务成功，存储最终结果
             self._result[result.task_id] = result
-            logger.info(f"任务 {result.task_id} 成功完成。")
+            logger.info(f"Task {result.task_id} done.")
             # 如果任务之前有失败记录，清理掉
             if result.task_id in self.failed_count:
                 del self.failed_count[result.task_id]
@@ -176,19 +178,17 @@ class TaskManager:
             failure_count = self.failed_count.get(result.task_id, 0) + 1
             self.failed_count[result.task_id] = failure_count
 
-            logger.error(
-                f"任务 {result.task_id} 失败 (第 {failure_count} 次): {result.stderr}"
-            )
+            logger.error(f"Task {result.task_id} failed (attempt {failure_count})")
 
             if failure_count >= 3:
                 # 达到最大重试次数，标记为永久失败并存储结果
                 logger.error(
-                    f"任务 {result.task_id} 已达到最大重试次数，标记为永久失败。"
+                    f"Task {result.task_id} has reached the maximum number of retries."
                 )
                 self._result[result.task_id] = result
                 # 清理失败计数
                 del self.failed_count[result.task_id]
             else:
                 # 未达到最大重试次数，将任务重新加入队列
-                logger.info(f"任务 {result.task_id} 将被重新加入队列进行重试。")
+                logger.info(f"Retring task {result.task_id} ")
                 self.add_task(task_to_process)

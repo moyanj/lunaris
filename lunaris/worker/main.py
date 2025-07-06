@@ -6,7 +6,13 @@ from typing import Optional
 from websockets import ConnectionClosedError
 from websockets.asyncio.client import connect, ClientConnection
 from lunaris.utils import proto2bytes, bytes2proto
-from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task, TaskResult
+from lunaris.proto.task_pb2 import (
+    NodeRegistration,
+    NodeStatus,
+    Task,
+    TaskResult,
+    UnregisterNode,
+)
 from lunaris.runtime.engine import LuaResult
 from lunaris.worker.core import Runner
 from loguru import logger
@@ -64,7 +70,13 @@ class Worker:
     async def disconnect(self) -> None:
         """关闭连接"""
         if self.ws:
-            await self.ws.close()
+            await self.ws.send(
+                proto2bytes(
+                    UnregisterNode(
+                        node_id=self.node_id,
+                    )
+                )
+            )
             self.ws = None
         if self.runner:
             await self.runner.close()

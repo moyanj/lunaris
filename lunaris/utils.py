@@ -6,6 +6,7 @@ from lunaris.proto.task_pb2 import (
     NodeStatus,
     NodeRegistration,
     NodeRegistrationReply,
+    UnregisterNode,
 )
 from google.protobuf.message import Message
 from typing import Any, Optional, Type
@@ -41,6 +42,7 @@ MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
     Envelope.MessageType.NODE_STATUS: NodeStatus,
     Envelope.MessageType.NODE_REGISTRATION: NodeRegistration,
     Envelope.MessageType.NODE_REGISTRATION_REPLY: NodeRegistrationReply,
+    Envelope.MessageType.UNREGISTER_NODE: UnregisterNode,
 }
 
 # 类型反向映射表：将proto类映射到Envelope.MessageType

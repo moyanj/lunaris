@@ -60,16 +60,21 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
                 await state.worker_manager.handle_heartbeat(ws, data)
             elif type(data) == task_pb2.TaskResult:
                 state.task_manager.put_result(data)
+            elif type(data) == task_pb2.UnregisterNode:
+                for w in state.worker_manager.workers:
+                    if w.node_id == data.node_id:
+                        await w.websocket.close()
+                        state.worker_manager.workers.remove(w)
+                        break
+                logger.info(f"Unregistered node {data.node_id}")
+
             else:
                 await ws.send_text("Invalid message")
                 await ws.close()
     except WebSocketDisconnect:
         logger.warning("A worker disconnected")
-    except Exception as e:
-        print(f"Error with worker connection: {e}")
     finally:
         if ws.client_state != WebSocketState.DISCONNECTED:
-            print(str(ws.state))
             await ws.close()
 
 

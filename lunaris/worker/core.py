@@ -37,7 +37,6 @@ def _execute_task(
 
         lua = LuaSandbox(version)
         result = lua.run(code, *args)
-        raise TypeError("TEST")
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id))
         logger.info(f"Task {task_id} has been completed.")
@@ -94,7 +93,7 @@ class Runner:
                 # 尝试从队列中获取结果，非阻塞地检查
                 if not self.result_queue.empty():
                     result, task_id = self.result_queue.get()
-                    print(f"主进程从队列收到结果 - 任务ID: {task_id}")
+                    logger.info(f"Received result from subprocess: {task_id}")
                     # 在这里调用异步报告回调函数
                     await self.report_callback(result, task_id)
                 else:
