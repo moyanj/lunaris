@@ -2,13 +2,12 @@ import asyncio
 import secrets
 import platform
 import psutil
-from typing import Optional, Callable, Dict, Tuple
-from multiprocessing import Pool
+from typing import Optional
+from websockets import ConnectionClosedError
 from websockets.asyncio.client import connect, ClientConnection
 from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.proto.task_pb2 import NodeRegistration, NodeStatus, Task, TaskResult
-from lunaris.runtime.engine import LuaResult, LuaVersion
-from lunaris.runtime import LuaSandbox
+from lunaris.runtime.engine import LuaResult
 from lunaris.worker.core import Runner
 
 
@@ -132,6 +131,8 @@ class Worker:
 
         except (ConnectionError, asyncio.CancelledError) as e:
             print(f"连接错误: {e}")
+        except ConnectionClosedError:
+            print("连接已关闭")
         finally:
             await self.shutdown()
 

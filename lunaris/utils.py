@@ -45,7 +45,6 @@ MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
 CLASS_TO_MESSAGE_TYPE: dict[Type[Message], Envelope.MessageType] = {
     v: k for k, v in MESSAGE_TYPE_MAP.items()
 }
-print(CLASS_TO_MESSAGE_TYPE)
 
 
 def bytes2proto(

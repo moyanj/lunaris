@@ -1,21 +1,15 @@
-# core.py
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
-from typing import Optional, Callable, Any, Tuple
+from typing import Optional, Callable, Any
 import psutil
 from lunaris.proto.task_pb2 import Task
 from lunaris.runtime import LuaSandbox, LuaVersion
 from lunaris.runtime.engine import LuaResult
 import json
-import functools
-import multiprocessing  # 导入multiprocessing模块
-import logging
+import multiprocessing
 
 
-# ----------------------------------------------------------------------
-# 独立的、顶级的函数，用于在子进程中执行Lua任务
-# ----------------------------------------------------------------------
-def _execute_task_in_subprocess(
+def _execute_task(
     code: str,
     args: list,
     lua_version_int: int,
@@ -54,12 +48,7 @@ class Runner:
         self, max_workers: int, report_callback: Callable[[LuaResult, str], Any]
     ):
         """
-        初始化Runner。
-
-        Args:
-            max_workers: 最大工作进程数。如果为0或None，则使用CPU核心数。
-            report_callback: 一个异步回调函数，用于报告任务结果。
-                             签名应为 `async def report_func(result: LuaResult, task_id: str): ...`
+        初始化Runner
         """
         self.max_workers = (
             max_workers if max_workers and max_workers > 0 else psutil.cpu_count()
@@ -83,9 +72,9 @@ class Runner:
         self._running = True
         print("启动Runner结果监听任务...")
         # 在事件循环中创建一个异步任务来持续监听结果
-        self._listener_task = asyncio.create_task(self._listen_for_results())
+        self._listener_task = asyncio.create_task(self._listen_results())
 
-    async def _listen_for_results(self):
+    async def _listen_results(self):
         """
         持续监听multiprocessing.Queue中的结果，并在收到时调用报告回调。
         """
@@ -117,12 +106,12 @@ class Runner:
             args = []
 
         self.executor.submit(
-            _execute_task_in_subprocess,
+            _execute_task,
             task.code,
             args,
             task.lua_version,
             task.task_id,
-            self.result_queue,  # 将共享队列传递给子进程
+            self.result_queue,  # type: ignore 将共享队列传递给子进程
         )
         print(f"任务 {task.task_id} 已提交到执行器。")
 

@@ -1,16 +1,15 @@
-from dataclasses import dataclass, field
 import secrets
 from datetime import datetime
 from lunaris.proto.task_pb2 import Task as TaskProto
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class Task:
+class Task(BaseModel):
     code: str
-    task_id: str = field(default_factory=lambda: secrets.token_hex(16))
-    timestamp: int = field(default_factory=lambda: int(datetime.now().timestamp()))
-    args: list = field(default_factory=list)
-    lua_version: TaskProto.LuaVersion = TaskProto.LuaVersion.LUA_54
+    task_id: str = Field(default_factory=lambda: secrets.token_hex(16))
+    timestamp: int = Field(default_factory=lambda: int(datetime.now().timestamp()))
+    args: list = Field(default_factory=list)
+    lua_version: str = "LUA_54"
     priority: int = 0
 
     def to_dict(self) -> dict:

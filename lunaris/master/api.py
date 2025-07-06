@@ -1,5 +1,4 @@
-from calendar import c
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
 from lunaris.utils import Rest
@@ -34,7 +33,7 @@ async def add_task(task: TaskModel, state: AppState = Depends(get_app_state)):
     task_r = Task(
         code=task.code,
         args=json.loads(task.args),
-        lua_version=getattr(TaskProto.LuaVersion, task.lua_version),
+        lua_version=task.lua_version,
         priority=task.priority,
     )
     state.task_manager.add_task(task_r)

@@ -5,10 +5,9 @@ from lunaris.utils import bytes2proto, proto2bytes
 from lunaris.proto.task_pb2 import (
     Envelope,
     NodeRegistration,
-    NodeStatus,
     Task as TaskProto,
 )
-from lunaris.master.manager import Worker, WorkerManager, TaskManager
+from lunaris.master.manager import WorkerManager, TaskManager
 from lunaris.core.model import Task
 from contextlib import asynccontextmanager
 import json
@@ -67,7 +66,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
 async def check_heartbeat(state: AppState):
     try:
         while True:
-            await asyncio.sleep(20)  # 每5秒检查一次
+            await asyncio.sleep(20)
             await state.worker_manager.remove_inactive_workers()
     except asyncio.CancelledError:
         pass
