@@ -3,7 +3,7 @@ import secrets
 import platform
 import psutil
 from typing import Optional
-from websockets import ConnectionClosedError
+from websockets import ConnectionClosedError, State
 from websockets.asyncio.client import connect, ClientConnection
 from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.proto.task_pb2 import (
@@ -69,7 +69,7 @@ class Worker:
 
     async def disconnect(self) -> None:
         """关闭连接"""
-        if self.ws:
+        if self.ws and self.ws.state == State.OPEN:
             await self.ws.send(
                 proto2bytes(
                     UnregisterNode(

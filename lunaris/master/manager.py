@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from lunaris.master.model import Task
 import asyncio
 from loguru import logger
+import random
 
 
 @dataclass
@@ -78,6 +79,7 @@ class WorkerManager:
                 low_worker = sorted(
                     idle_workers, key=lambda x: x.status.current_task  # type: ignore
                 )
+
             return low_worker[0]
 
     async def close(self):
