@@ -59,7 +59,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
             if type(data) == worker_pb2.NodeStatus:
                 await state.worker_manager.handle_heartbeat(ws, data)
             elif type(data) == common_pb2.TaskResult:
-                state.task_manager.put_result(data)
+                await state.task_manager.put_result(data)
             elif type(data) == worker_pb2.UnregisterNode:
                 for w in state.worker_manager.workers:
                     if w.node_id == data.node_id:

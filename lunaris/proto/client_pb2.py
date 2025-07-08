@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from proto import common_pb2 as proto_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/client.proto\x12\x0elunaris.client\x1a\x12proto/common.proto\"k\n\nCreateTask\x12\x0c\n\x04\x63ode\x18\x01 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\t\x12/\n\x0blua_version\x18\x03 \x01(\x0e\x32\x1a.lunaris.common.LuaVersion\x12\x10\n\x08priority\x18\x04 \x01(\x05\"\"\n\x0fUnsubscribeTask\x12\x0f\n\x07task_id\x18\x01 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/client.proto\x12\x0elunaris.client\x1a\x12proto/common.proto\"k\n\nCreateTask\x12\x0c\n\x04\x63ode\x18\x01 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\t\x12/\n\x0blua_version\x18\x03 \x01(\x0e\x32\x1a.lunaris.common.LuaVersion\x12\x10\n\x08priority\x18\x04 \x01(\x05\"\"\n\x0fUnsubscribeTask\x12\x0f\n\x07task_id\x18\x01 \x03(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)

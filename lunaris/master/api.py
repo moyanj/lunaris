@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket
+from fastapi.websockets import WebSocketState
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
-from lunaris.utils import Rest
+from lunaris.proto.client_pb2 import CreateTask
+from lunaris.utils import Rest, bytes2proto
 from pydantic import BaseModel, Field
 import json
 
@@ -21,34 +23,45 @@ async def get_workers(state: AppState = Depends(get_app_state)):
     return Rest(data={"count": len(workers), "workers": [w.to_dict() for w in workers]})
 
 
-@app.get("/task")
-async def get_tasks(type: str = "waiting", state: AppState = Depends(get_app_state)):
-    tasks = []
-    if type == "waiting" or type == "all":
-        for task in state.task_manager.all():
-            task = task.to_dict()
-            task["status"] = "waiting"
-            tasks.append(task)
-    elif type == "running" or type == "all":
-        for task in state.task_manager.running_tasks.values():
-            task = task.to_dict()
-            task["status"] = "running"
-            tasks.append(task)
-    else:
-        raise HTTPException(status_code=400, detail="Invalid type")
-    return Rest(data={"count": len(tasks), "tasks": tasks})
+@app.websocket("/task")
+async def tasks(ws: WebSocket, state: AppState = Depends(get_app_state)):
+    from lunaris.proto.client_pb2 import UnsubscribeTask
+    from loguru import logger
 
+    await ws.accept()
+    logger.info("WebSocket connection established for task submission")
 
-@app.post("/task")
-async def add_task(task: TaskModel, state: AppState = Depends(get_app_state)):
-    task_r = Task(
-        code=task.code,
-        args=json.loads(task.args),
-        lua_version=task.lua_version,
-        priority=task.priority,
-    )
-    state.task_manager.add_task(task_r)
-    return Rest(data=task_r.to_dict())
+    try:
+        while ws.client_state == WebSocketState.CONNECTED:
+            try:
+                data = bytes2proto(await ws.receive_bytes())
+
+                if type(data) is CreateTask:
+                    logger.info(f"Received CreateTask request")
+
+                    task = Task(
+                        code=data.code,
+                        args=json.loads(data.args),
+                        lua_version=data.lua_version,
+                        priority=data.priority,
+                    )
+
+                    logger.info(f"Created task with ID: {task.task_id}")
+                    state.task_manager.add_task(task, ws)
+
+                elif type(data) is UnsubscribeTask:
+                    for task in state.task_manager._tasks_list:
+                        if task.task_id in data.task_id:
+                            state.task_manager.task_websockets.pop(task.task_id)
+                    await ws.close()
+
+            except Exception as e:
+                logger.error(f"Error processing WebSocket message: {str(e)}")
+
+    except Exception as e:
+        logger.error(f"WebSocket connection error: {str(e)}")
+    finally:
+        logger.info("WebSocket connection closed")
 
 
 @app.get("/task/{task_id}")

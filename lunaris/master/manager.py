@@ -113,10 +113,14 @@ class TaskManager:
         self.running_tasks = {}
         self._result = {}
         self.failed_count = {}
+        self.task_websockets: dict[str, WebSocket] = (
+            {}
+        )  # 存储 task_id 和 WebSocket 的对应关系
 
-    def add_task(self, task: Task) -> None:
+    def add_task(self, task: Task, ws: WebSocket) -> None:
         self.task_queue.put_nowait(task)
         self._tasks_list.append(task)
+        self.task_websockets[task.task_id] = ws  # 存储 WebSocket 连接
         # 为了保持 _tasks_list 的一致性，每次添加后都排序
         self._sort_tasks_list()
 
@@ -150,7 +154,7 @@ class TaskManager:
         # _tasks_list 已经在 add_task 中维护了排序
         return self._tasks_list[:]  # 返回副本，防止外部修改
 
-    def put_result(self, result: TaskResult) -> None:
+    async def put_result(self, result: TaskResult) -> None:
         """
         处理任务执行结果，包括成功、失败重试和永久失败。
         """
@@ -167,8 +171,11 @@ class TaskManager:
         # 任务已结束（无论成功或失败），将其从运行集合中移除
         self.running_tasks.pop(result.task_id)
         if result.succeeded:
-            # 任务成功，存储最终结果
-            self._result[result.task_id] = result
+            ws = self.task_websockets.get(result.task_id)
+            if ws is None:
+                logger.error("No websocket found for task")
+            else:
+                await ws.send_bytes(proto2bytes(result))
             logger.info(f"Task {result.task_id} done.")
             # 如果任务之前有失败记录，清理掉
             if result.task_id in self.failed_count:
@@ -191,4 +198,4 @@ class TaskManager:
             else:
                 # 未达到最大重试次数，将任务重新加入队列
                 logger.info(f"Retring task {result.task_id} ")
-                self.add_task(task_to_process)
+                self.add_task(task_to_process, ws)  # type: ignore
