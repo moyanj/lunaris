@@ -2,6 +2,23 @@ syntax = "proto3";
 
 package lunaris.common;
 
+message Envelope {
+  enum MessageType {
+    TASK = 0;
+    TASK_RESULT = 1;
+    CONTROL_COMMAND = 2;
+    NODE_STATUS = 3;
+    NODE_REGISTRATION = 4;
+    NODE_REGISTRATION_REPLY = 5;
+    UNREGISTER_NODE = 6;
+    CREATE_TASK = 7;
+    UNSUBSCRIBE_TASK = 8;
+  }
+
+  MessageType type = 1;
+  bytes payload = 2;
+}
+
 enum LuaVersion {
   LUA_54 = 0;
   LUA_51 = 1;

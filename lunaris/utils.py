@@ -1,13 +1,12 @@
-from lunaris.proto.task_pb2 import (
-    Envelope,
+from lunaris.proto.worker_pb2 import (
     Task,
-    TaskResult,
     ControlCommand,
     NodeStatus,
     NodeRegistration,
     NodeRegistrationReply,
     UnregisterNode,
 )
+from lunaris.proto.common_pb2 import Envelope, TaskResult
 from google.protobuf.message import Message
 from typing import Any, Optional, Type
 from fastapi.responses import JSONResponse

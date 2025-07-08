@@ -4,17 +4,16 @@ from fastapi.websockets import WebSocketState
 from lunaris.proto.worker_pb2 import (
     NodeRegistration,
     NodeRegistrationReply,
-    TaskResult,
     NodeStatus,
 )
+from lunaris.proto.common_pb2 import TaskResult
 from dataclasses import dataclass, field
 import secrets
-from lunaris.utils import bytes2proto, proto2bytes
+from lunaris.utils import proto2bytes
 from datetime import datetime, timedelta
 from lunaris.master.model import Task
 import asyncio
 from loguru import logger
-import random
 
 
 @dataclass

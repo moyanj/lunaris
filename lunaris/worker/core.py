@@ -2,7 +2,8 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from typing import Optional, Callable, Any
 import psutil
-from lunaris.proto.task_pb2 import Task
+from lunaris.proto.worker_pb2 import Task
+from lunaris.proto.common_pb2 import LuaVersion as LuaVersionProto
 from lunaris.runtime import LuaSandbox, LuaVersion
 from lunaris.runtime.engine import LuaResult
 import json
@@ -30,7 +31,7 @@ def _execute_task(
     logger.info(f"Start executing task: {task_id}")
     try:
         # 将protobuf枚举值转换为LuaVersion枚举
-        version_name = Task.LuaVersion.Name(lua_version_int)
+        version_name = LuaVersionProto.Name(lua_version_int)
         version = getattr(LuaVersion, version_name, None)
         if version is None:
             raise ValueError(f"不支持的Lua版本: {lua_version_int} ({version_name})")

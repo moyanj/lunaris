@@ -4,17 +4,11 @@ package lunaris.client;
 
 import "proto/common.proto";
 
-message Envelope { RequestType type = 1; }
-
-message Task {
+message CreateTask {
   string code = 1;
   string args = 2;
   common.LuaVersion lua_version = 3; // Lua解释器版本
   int32 priority = 4;                // 优先级
 }
 
-enum RequestType {
-  TASK = 0;   // 运行任务
-  QUIT = 1;   // 退出
-  WORKER = 2; // 获取worker信息
-}
+message UnsubscribeTask { string task_id = 1; }

@@ -4,21 +4,6 @@ package lunaris.worker;
 
 import "proto/common.proto";
 
-message Envelope {
-  enum MessageType {
-    TASK = 0;
-    TASK_RESULT = 1;
-    CONTROL_COMMAND = 2;
-    NODE_STATUS = 3;
-    NODE_REGISTRATION = 4;
-    NODE_REGISTRATION_REPLY = 5;
-    UNREGISTER_NODE = 6;
-  }
-
-  MessageType type = 1;
-  bytes payload = 2;
-}
-
 // ========== 核心任务格式 ==========
 message Task {
   string task_id = 1;

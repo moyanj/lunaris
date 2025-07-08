@@ -10,9 +10,9 @@ from lunaris.proto.worker_pb2 import (
     NodeRegistration,
     NodeStatus,
     Task,
-    TaskResult,
     UnregisterNode,
 )
+from lunaris.proto.common_pb2 import TaskResult
 from lunaris.runtime.engine import LuaResult
 from lunaris.worker.core import Runner
 from loguru import logger
