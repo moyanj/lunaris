@@ -3,18 +3,16 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Optional, Callable, Any
 import psutil
 from lunaris.proto.worker_pb2 import Task
-from lunaris.proto.common_pb2 import LuaVersion as LuaVersionProto
-from lunaris.runtime import LuaSandbox, LuaVersion
-from lunaris.runtime.engine import LuaResult
+from lunaris.runtime import WasmResult, WasmSandbox
 import json
 import multiprocessing
 from loguru import logger
 
 
 def _execute_task(
-    code: str,
+    code: bytes,
     args: list,
-    lua_version_int: int,
+    entry: str,
     task_id: str,
     result_queue: multiprocessing.Queue,
 ):
@@ -30,20 +28,18 @@ def _execute_task(
     """
     logger.info(f"Start executing task: {task_id}")
     try:
-        # 将protobuf枚举值转换为LuaVersion枚举
-        version_name = LuaVersionProto.Name(lua_version_int)
-        version = getattr(LuaVersion, version_name, None)
-        if version is None:
-            raise ValueError(f"不支持的Lua版本: {lua_version_int} ({version_name})")
-
-        lua = LuaSandbox(version)
-        result = lua.run(code, *args)
+        sandbox = WasmSandbox()
+        result = sandbox.run(
+            code,
+            *args,
+            entry=entry,
+        )
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id))
         logger.info(f"Task {task_id} has been completed.")
 
     except Exception as e:
-        result = LuaResult(
+        result = WasmResult(
             result=None,
             stdout="",
             stderr=str(e),
@@ -55,7 +51,7 @@ def _execute_task(
 
 class Runner:
     def __init__(
-        self, max_workers: int, report_callback: Callable[[LuaResult, str], Any]
+        self, max_workers: int, report_callback: Callable[[WasmResult, str], Any]
     ):
         """
         初始化Runner
@@ -118,9 +114,9 @@ class Runner:
 
         self.executor.submit(
             _execute_task,
-            task.code,
+            task.wasm_module,
             args,
-            task.lua_version,
+            task.entry,
             task.task_id,
             self.result_queue,  # type: ignore 将共享队列传递给子进程
         )

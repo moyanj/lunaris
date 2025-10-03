@@ -13,7 +13,7 @@ from lunaris.proto.worker_pb2 import (
     UnregisterNode,
 )
 from lunaris.proto.common_pb2 import TaskResult
-from lunaris.runtime.engine import LuaResult
+from lunaris.runtime.engine import WasmResult
 from lunaris.worker.core import Runner
 from loguru import logger
 
@@ -102,7 +102,7 @@ class Worker:
 
         logger.info(f"Registered.")
 
-    async def report_result(self, result: LuaResult, task_id: str) -> None:
+    async def report_result(self, result: WasmResult, task_id: str) -> None:
         """向Master报告任务结果"""
         if not self.ws:
             raise ConnectionError("WebSocket未连接")

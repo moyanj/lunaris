@@ -1,1 +1,1 @@
-from .engine import LuaSandbox, LuaVersion, lua_dir, LuaResult
+from .engine import WasmSandbox, WasmResult

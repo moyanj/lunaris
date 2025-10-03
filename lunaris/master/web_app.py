@@ -100,9 +100,9 @@ async def destribute_tasks(state: AppState):
             proto2bytes(
                 TaskProto(
                     task_id=task.task_id,
-                    code=task.code,
+                    wasm_module=task.wasm_module,
                     args=json.dumps(task.args),
-                    lua_version=TaskProto.LuaVersion.Value(task.lua_version),  # type: ignore
+                    entry=task.entry,  # type: ignore
                     priority=task.priority,
                 ),
                 Envelope.MessageType.TASK,

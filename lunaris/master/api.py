@@ -13,7 +13,7 @@ app = APIRouter()
 class TaskModel(BaseModel):
     code: str
     args: str = "[]"
-    lua_version: str = "LUA_54"
+    entry: str = "main"
     priority: int = Field(default=0)
 
 
@@ -35,14 +35,13 @@ async def tasks(ws: WebSocket, state: AppState = Depends(get_app_state)):
         while ws.client_state == WebSocketState.CONNECTED:
             try:
                 data = bytes2proto(await ws.receive_bytes())
-
                 if type(data) is CreateTask:
                     logger.info(f"Received CreateTask request")
 
                     task = Task(
-                        code=data.code,
+                        wasm_module=data.wasm_module,
                         args=json.loads(data.args),
-                        lua_version=data.lua_version,
+                        entry=data.entry,
                         priority=data.priority,
                     )
 
