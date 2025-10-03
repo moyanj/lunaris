@@ -4,17 +4,9 @@ from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
 from lunaris.proto.client_pb2 import CreateTask
 from lunaris.utils import Rest, bytes2proto
-from pydantic import BaseModel, Field
 import json
 
 app = APIRouter()
-
-
-class TaskModel(BaseModel):
-    code: str
-    args: str = "[]"
-    entry: str = "main"
-    priority: int = Field(default=0)
 
 
 @app.get("/worker")
@@ -65,15 +57,16 @@ async def tasks(ws: WebSocket, state: AppState = Depends(get_app_state)):
 
 @app.get("/task/{task_id}")
 async def get_task_result(task_id: str, state: AppState = Depends(get_app_state)):
-    result = state.task_manager._result.get(task_id)
-    if result is None:
-        return Rest(msg="Task not found or doesn't run", status_code=404)
-    return Rest(
-        data={
-            "task_id": result.task_id,
-            "result": result.result,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "time": result.time,
-        }
-    )
+    for result in state.task_manager.result:
+        if result.task_id == task_id:
+            return Rest(
+                data={
+                    "task_id": result.task_id,
+                    "result": result.result,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                    "time": result.time,
+                }
+            )
+
+    return Rest(msg="Task not found or doesn't run", status_code=404)

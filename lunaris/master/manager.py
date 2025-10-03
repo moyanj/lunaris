@@ -6,6 +6,7 @@ from lunaris.proto.worker_pb2 import (
     NodeRegistrationReply,
     NodeStatus,
 )
+from collections import deque
 from lunaris.proto.common_pb2 import TaskResult
 from dataclasses import dataclass, field
 import secrets
@@ -120,11 +121,11 @@ class TaskManager:
         self.task_queue: asyncio.PriorityQueue[Task] = asyncio.PriorityQueue()
         self._tasks_list: list[Task] = []
         self.running_tasks = {}
-        self._result = {}
         self.failed_count = {}
         self.task_websockets: dict[str, WebSocket] = (
             {}
         )  # 存储 task_id 和 WebSocket 的对应关系
+        self.result = deque(maxlen=1024)
 
     def add_task(self, task: Task, ws: WebSocket) -> None:
         self.task_queue.put_nowait(task)
@@ -185,6 +186,7 @@ class TaskManager:
                 logger.error("No websocket found for task")
             else:
                 await ws.send_bytes(proto2bytes(result))
+            self.result.append(result)
             logger.info(f"Task {result.task_id} done.")
             # 如果任务之前有失败记录，清理掉
             if result.task_id in self.failed_count:
@@ -201,7 +203,13 @@ class TaskManager:
                 logger.error(
                     f"Task {result.task_id} has reached the maximum number of retries."
                 )
-                self._result[result.task_id] = result
+                ws = self.task_websockets.get(result.task_id)
+                if ws is None:
+                    logger.error("No websocket found for task")
+                else:
+                    await ws.send_bytes(proto2bytes(result))
+                self.result.append(result)
+                logger.info(f"Task {result.task_id} done.")
                 # 清理失败计数
                 del self.failed_count[result.task_id]
             else:
