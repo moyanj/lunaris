@@ -73,6 +73,9 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
     except WebSocketDisconnect:
         logger.warning("A worker disconnected")
     except Exception as e:
+        import traceback
+
+        logger.error(traceback.format_exc())
         logger.error(f"Error: {e}")
     finally:
         if ws.client_state != WebSocketState.DISCONNECTED:

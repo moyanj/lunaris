@@ -101,8 +101,11 @@ class WorkerManager:
         for w in self.workers:
             if w.last_heartbeat < cutoff_time:
                 logger.info(f"Removing inactive worker: {w.node_id}")
-                if w.websocket.client_state != WebSocketState.DISCONNECTED:
-                    await w.websocket.close()
+                try:
+                    if w.websocket.client_state != WebSocketState.DISCONNECTED:
+                        await w.websocket.close()
+                except:
+                    pass
                 self.workers.remove(w)
 
 
@@ -198,4 +201,5 @@ class TaskManager:
             else:
                 # 未达到最大重试次数，将任务重新加入队列
                 logger.info(f"Retring task {result.task_id} ")
-                self.add_task(task_to_process, ws)  # type: ignore
+                # ws = self.task_websockets.get(result.task_id)
+                # self.add_task(task_to_process, ws)  # type: ignore
