@@ -60,27 +60,28 @@ class WorkerManager:
             if worker.node_id == node_id:
                 return worker
 
-    async def get(self):
+    async def get(self) -> Worker:
         async with self.condition:
-            idle_workers = []
-            for i in self.workers:
-                if i.status and i.status.status == NodeStatus.NodeState.IDLE:
-                    idle_workers.append(i)
-            low_worker: list[Worker] = sorted(
-                idle_workers, key=lambda x: x.status.current_task  # type: ignore
-            )
-            while len(low_worker) == 0:
-                await self.condition.wait()
-                # 可能需要重新计算 idle_workers 和 low_worker
+            while True:
+                # 寻找空闲且负载最低的worker
                 idle_workers = []
-                for i in self.workers:
-                    if i.status and i.status.status == NodeStatus.NodeState.IDLE:
-                        idle_workers.append(i)
-                low_worker = sorted(
-                    idle_workers, key=lambda x: x.status.current_task  # type: ignore
-                )
+                for worker in self.workers:
+                    if (
+                        worker.status
+                        and worker.status.status == NodeStatus.NodeState.IDLE
+                        and worker.websocket.client_state == WebSocketState.CONNECTED
+                    ):
+                        idle_workers.append(worker)
 
-            return low_worker[0]
+                if idle_workers:
+                    # 按当前任务数排序，选择负载最轻的
+                    return min(
+                        idle_workers,
+                        key=lambda w: w.status.current_task if w.status else 0,
+                    )
+
+                # 没有可用worker，等待通知
+                await self.condition.wait()
 
     async def close(self):
         for worker in self.workers:
@@ -99,6 +100,11 @@ class WorkerManager:
     async def remove_inactive_workers(self):
         cutoff_time = datetime.now() - timedelta(seconds=20)
         for w in self.workers:
+            if w.websocket.client_state == WebSocketState.DISCONNECTED:
+                logger.info(f"Removing inactive worker: {w.node_id}")
+                self.workers.remove(w)
+                continue
+
             if w.last_heartbeat < cutoff_time:
                 logger.info(f"Removing inactive worker: {w.node_id}")
                 try:

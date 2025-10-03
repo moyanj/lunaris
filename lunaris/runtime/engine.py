@@ -43,13 +43,15 @@ class WasmSandbox:
         name="<script>",
     ) -> WasmResult:
         """
-        执行 Lua 代码，并返回结果。
+        执行 Wasm 模块，并返回结果。
         """
-        start_time = time.perf_counter()
+
         result = ""
+
         module = Module(self.engine, module_code)
         instance = Instance(self.store, module, [])
         main_func = instance.exports(self.store)[entry]
+        start_time = time.perf_counter()
         result = main_func(self.store, *args)  # type: ignore
         run_time = time.perf_counter() - start_time
 

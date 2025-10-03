@@ -7,7 +7,7 @@ import uvicorn
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Lunaris Distributed Lua Executor")
+    parser = argparse.ArgumentParser(description="Lunaris Distributed WASM Executor")
     subparsers = parser.add_subparsers(dest="role", help="Run as master or worker")
 
     # Master 参数
@@ -19,9 +19,7 @@ def main():
     worker_parser = subparsers.add_parser("worker", help="Run as worker node")
     worker_parser.add_argument("--master", required=True, help="Master address")
     worker_parser.add_argument("--name", help="Worker name")
-    worker_parser.add_argument(
-        "--concurrency", type=int, help="Max concurrent tasks"
-    )
+    worker_parser.add_argument("--concurrency", type=int, help="Max concurrent tasks")
 
     args = parser.parse_args()
 

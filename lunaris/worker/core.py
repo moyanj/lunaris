@@ -17,12 +17,12 @@ def _execute_task(
     result_queue: multiprocessing.Queue,
 ):
     """
-    在子进程中执行Lua代码。这是一个独立的函数。
+    在子进程中执行Wasm模块。这是一个独立的函数。
 
     Args:
-        code: Lua代码字符串。
-        args: 传递给Lua脚本的参数列表。
-        lua_version_int: Lua版本枚举的整数值（从Task.LuaVersion获取）。
+        code: Wasm模块。
+        args: 传递给Wasm模块的参数列表。
+        entry: Wasm模块的入口点函数名。
         task_id: 任务ID。
         result_queue: 用于将结果传回主进程的multiprocessing.Queue。
     """
@@ -106,7 +106,7 @@ class Runner:
 
     def submit(self, task: Task) -> None:
         """
-        提交一个Lua任务到执行器。
+        提交一个Wasm模块任务到执行器。
 
         Args:
             task: 待执行的任务对象。

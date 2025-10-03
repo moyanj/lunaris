@@ -55,7 +55,11 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
 
         while True and ws.client_state == WebSocketState.CONNECTED:
             data = await ws.receive_bytes()
-            data = bytes2proto(data)
+            try:
+                data = bytes2proto(data)
+            except ValueError:
+                # 错误的数据包
+                continue
             if type(data) == worker_pb2.NodeStatus:
                 await state.worker_manager.handle_heartbeat(ws, data)
             elif type(data) == common_pb2.TaskResult:
