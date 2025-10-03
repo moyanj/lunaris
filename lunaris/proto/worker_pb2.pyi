@@ -1,4 +1,3 @@
-from proto import common_pb2 as _common_pb2
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -7,18 +6,18 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Task(_message.Message):
-    __slots__ = ("task_id", "code", "args", "lua_version", "priority")
+    __slots__ = ("task_id", "wasm_module", "args", "entry", "priority")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
-    CODE_FIELD_NUMBER: _ClassVar[int]
+    WASM_MODULE_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
-    LUA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    ENTRY_FIELD_NUMBER: _ClassVar[int]
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
     task_id: str
-    code: str
+    wasm_module: bytes
     args: str
-    lua_version: _common_pb2.LuaVersion
+    entry: str
     priority: int
-    def __init__(self, task_id: _Optional[str] = ..., code: _Optional[str] = ..., args: _Optional[str] = ..., lua_version: _Optional[_Union[_common_pb2.LuaVersion, str]] = ..., priority: _Optional[int] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., wasm_module: _Optional[bytes] = ..., args: _Optional[str] = ..., entry: _Optional[str] = ..., priority: _Optional[int] = ...) -> None: ...
 
 class ControlCommand(_message.Message):
     __slots__ = ("type", "data")

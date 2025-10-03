@@ -2,13 +2,11 @@ syntax = "proto3";
 
 package lunaris.client;
 
-import "proto/common.proto";
-
 message CreateTask {
-  string code = 1;
+  bytes wasm_module = 1;
   string args = 2;
-  common.LuaVersion lua_version = 3; // Lua解释器版本
-  int32 priority = 4;                // 优先级
+  string entry = 3;   // WASM模块入口点
+  int32 priority = 4; // 优先级
 }
 
 message UnsubscribeTask { repeated string task_id = 1; }

@@ -5,21 +5,6 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class LuaVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    LUA_54: _ClassVar[LuaVersion]
-    LUA_51: _ClassVar[LuaVersion]
-    LUA_52: _ClassVar[LuaVersion]
-    LUA_53: _ClassVar[LuaVersion]
-    LUA_JIT_20: _ClassVar[LuaVersion]
-    LUA_JIT_21: _ClassVar[LuaVersion]
-LUA_54: LuaVersion
-LUA_51: LuaVersion
-LUA_52: LuaVersion
-LUA_53: LuaVersion
-LUA_JIT_20: LuaVersion
-LUA_JIT_21: LuaVersion
-
 class Envelope(_message.Message):
     __slots__ = ("type", "payload")
     class MessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -62,4 +47,4 @@ class TaskResult(_message.Message):
     stderr: str
     time: float
     succeeded: bool
-    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ..., succeeded: bool = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ...) -> None: ...
