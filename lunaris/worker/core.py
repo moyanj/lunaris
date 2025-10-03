@@ -43,7 +43,7 @@ def _execute_task(
 
         logger.error(f"Error executing task: {str(e)}")
         result = WasmResult(
-            result=None,
+            result="",
             stdout="",
             stderr=str(e),
             time=0,
@@ -100,7 +100,9 @@ class Runner:
                     # 如果队列为空，短暂休眠，避免忙等待
                     await asyncio.sleep(0.01)
             except Exception as e:
-                pass
+                import traceback
+
+                traceback.print_exc()
 
     def submit(self, task: Task) -> None:
         """

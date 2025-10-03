@@ -1,6 +1,7 @@
 from ast import main
 from enum import StrEnum
 from importlib import import_module
+import json
 from typing import Any
 from io import StringIO
 import os
@@ -12,7 +13,7 @@ from wasmtime import Engine, Store, WasiConfig, Module, Instance
 
 @dataclass
 class WasmResult:
-    result: Any
+    result: str
     stdout: str
     stderr: str
     time: float
@@ -52,9 +53,20 @@ class WasmSandbox:
         result = main_func(self.store, *args)  # type: ignore
         run_time = time.perf_counter() - start_time
 
-        return WasmResult(
-            result=result,
-            stdout=self.wasm_stdout.getvalue(),
-            stderr=self.wasm_stderr.getvalue(),
-            time=run_time * 1000,
-        )
+        try:
+            result = json.dumps(result)
+
+            return WasmResult(
+                result=result,
+                stdout=self.wasm_stdout.getvalue(),
+                stderr=self.wasm_stderr.getvalue(),
+                time=run_time * 1000,
+            )
+        except Exception as e:
+            return WasmResult(
+                result="",
+                stdout=self.wasm_stdout.getvalue(),
+                stderr="".format(e),
+                time=run_time * 1000,
+                succeeded=False,
+            )

@@ -106,16 +106,16 @@ class Worker:
         """向Master报告任务结果"""
         if not self.ws:
             raise ConnectionError("WebSocket未连接")
-        print(result)
+
         proto = TaskResult(
             task_id=task_id,
-            result=result.result,
+            result=str(result.result),
             stdout=result.stdout,
             stderr=result.stderr,
             time=result.time,
             succeeded=result.succeeded,
         )
-        print(proto)
+
         await self.ws.send(proto2bytes(proto))
 
     async def handle_task(self, task: Task) -> None:
