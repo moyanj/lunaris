@@ -1,6 +1,6 @@
 import argparse
 import asyncio
-import sys
+import os
 from lunaris.master.web_app import app as master_app
 from lunaris.worker.main import Worker
 import uvicorn
@@ -20,6 +20,12 @@ def main():
     worker_parser.add_argument("--master", required=True, help="Master address")
     worker_parser.add_argument("--name", help="Worker name")
     worker_parser.add_argument("--concurrency", type=int, help="Max concurrent tasks")
+    worker_parser.add_argument(
+        "--token",
+        help="Worker token",
+        type=str,
+        default=os.environ.get("WORKER_TOKEN", ""),
+    )
 
     args = parser.parse_args()
 
@@ -27,7 +33,10 @@ def main():
         uvicorn.run(master_app, host=args.host, port=args.port)
     elif args.role == "worker":
         worker = Worker(
-            master_uri=args.master, name=args.name, max_concurrency=args.concurrency
+            master_uri=args.master,
+            token=args.token,
+            name=args.name,
+            max_concurrency=args.concurrency,
         )
         asyncio.run(worker.run())
     else:

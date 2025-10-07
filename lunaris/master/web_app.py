@@ -6,6 +6,7 @@ from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.proto import common_pb2
 from lunaris.utils import bytes2proto, proto2bytes
 from lunaris.proto.worker_pb2 import (
+    ControlCommand,
     NodeRegistration,
     Task as TaskProto,
 )
@@ -58,7 +59,15 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         if type(registration) != NodeRegistration:
             await ws.close()
         if not registration.token == state.worker_token:
+            await ws.send_bytes(
+                proto2bytes(
+                    ControlCommand(
+                        type=ControlCommand.CommandType.SHUTDOWN, data="Invalid token"
+                    )
+                )
+            )
             await ws.close()
+            return
         await state.worker_manager.register(ws, registration)
 
         while True and ws.client_state == WebSocketState.CONNECTED:
@@ -91,7 +100,10 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         logger.error(f"Error: {e}")
     finally:
         if ws.client_state != WebSocketState.DISCONNECTED:
-            await ws.close()
+            try:
+                await ws.close()
+            except Exception:
+                pass
 
 
 async def check_heartbeat(state: AppState):

@@ -7,6 +7,7 @@ from websockets import ConnectionClosedError, State
 from websockets.asyncio.client import connect, ClientConnection
 from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.proto.worker_pb2 import (
+    ControlCommand,
     NodeRegistration,
     NodeStatus,
     Task,
@@ -99,7 +100,13 @@ class Worker:
         await self.ws.send(proto2bytes(registration))
 
         response = await self.ws.recv(decode=False)
-        self.node_id = bytes2proto(response).node_id
+        response = bytes2proto(response)
+        if type(response) == ControlCommand:
+            if response.type == ControlCommand.CommandType.SHUTDOWN:
+                logger.info(f"Cannot connect to master. Reason: {response.data}")
+                exit()
+        else:
+            self.node_id = response.node_id
 
         logger.info(f"Registered.")
 
