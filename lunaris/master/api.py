@@ -16,10 +16,12 @@ async def get_workers(state: AppState = Depends(get_app_state)):
 
 
 @app.websocket("/task")
-async def tasks(ws: WebSocket, state: AppState = Depends(get_app_state)):
+async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_state)):
     from lunaris.proto.client_pb2 import UnsubscribeTask
     from loguru import logger
 
+    if token != state.client_token:
+        raise HTTPException(status_code=403, detail="Invalid token")
     await ws.accept()
     logger.info("WebSocket connection established for task submission")
 
