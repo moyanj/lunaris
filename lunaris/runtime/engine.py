@@ -3,7 +3,7 @@ from io import StringIO
 import time
 from dataclasses import dataclass
 
-from wasmtime import Engine, Store, WasiConfig, Module, Instance
+from wasmtime import Engine, Store, WasiConfig, Module, Linker
 
 
 @dataclass
@@ -44,7 +44,9 @@ class WasmSandbox:
         result = ""
 
         module = Module(self.engine, module_code)
-        instance = Instance(self.store, module, [])
+        linker = Linker(self.engine)
+        linker.define_wasi()
+        instance = linker.instantiate(self.store, module)
         main_func = instance.exports(self.store)[entry]
         start_time = time.perf_counter()
         result = main_func(self.store, *args)  # type: ignore

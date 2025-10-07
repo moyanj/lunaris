@@ -41,6 +41,7 @@ def _execute_task(
     except Exception as e:
         import traceback
 
+        traceback.print_exc()
         logger.error(f"Error executing task: {str(e)}")
         result = WasmResult(
             result="",
