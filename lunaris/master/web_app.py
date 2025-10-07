@@ -1,6 +1,7 @@
 import asyncio
 import os
 import secrets
+from typing import Optional
 from fastapi import FastAPI, WebSocket, Depends
 from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.proto import common_pb2
@@ -53,8 +54,14 @@ app = FastAPI(lifespan=lifecycle)
 @app.websocket("/worker")
 async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_state)):
     await ws.accept()
-    reg_data = await ws.receive_bytes()
     try:
+        reg_data: Optional[bytes] = None
+        try:
+            reg_data = await asyncio.wait_for(ws.receive_bytes(), timeout=10.0)
+        except asyncio.TimeoutError:
+            await ws.close()  # 自定义关闭码，表示超时
+            return
+
         registration = bytes2proto(reg_data)
         if type(registration) != NodeRegistration:
             await ws.close()
@@ -96,7 +103,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
     except Exception as e:
         import traceback
 
-        logger.error(traceback.format_exc())
+        # logger.error(traceback.format_exc())
         logger.error(f"Error: {e}")
     finally:
         if ws.client_state != WebSocketState.DISCONNECTED:
