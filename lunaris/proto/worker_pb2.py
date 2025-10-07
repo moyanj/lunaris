@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/worker.proto\x12\x0elunaris.worker\"[\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bwasm_module\x18\x02 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\r\n\x05\x65ntry\x18\x04 \x01(\t\x12\x10\n\x08priority\x18\x05 \x01(\x05\"\x84\x01\n\x0e\x43ontrolCommand\x12\x38\n\x04type\x18\x01 \x01(\x0e\x32*.lunaris.worker.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x8a\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.lunaris.worker.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\x05\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"y\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02os\x18\x02 \x01(\t\x12\x0c\n\x04\x61rch\x18\x03 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x04 \x01(\x05\x12\x0f\n\x07num_cpu\x18\x06 \x01(\x05\x12\x13\n\x0bmemory_size\x18\x07 \x01(\x05\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"!\n\x0eUnregisterNode\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/worker.proto\x12\x0elunaris.worker\"[\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bwasm_module\x18\x02 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\r\n\x05\x65ntry\x18\x04 \x01(\t\x12\x10\n\x08priority\x18\x05 \x01(\x05\"\x84\x01\n\x0e\x43ontrolCommand\x12\x38\n\x04type\x18\x01 \x01(\x0e\x32*.lunaris.worker.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x8a\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.lunaris.worker.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\x05\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"k\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04\x61rch\x18\x02 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\x05\x12\x13\n\x0bmemory_size\x18\x04 \x01(\x05\x12\r\n\x05token\x18\x05 \x01(\t\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"!\n\x0eUnregisterNode\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -42,9 +42,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_NODESTATUS_NODESTATE']._serialized_start=374
   _globals['_NODESTATUS_NODESTATE']._serialized_end=405
   _globals['_NODEREGISTRATION']._serialized_start=407
-  _globals['_NODEREGISTRATION']._serialized_end=528
-  _globals['_NODEREGISTRATIONREPLY']._serialized_start=530
-  _globals['_NODEREGISTRATIONREPLY']._serialized_end=570
-  _globals['_UNREGISTERNODE']._serialized_start=572
-  _globals['_UNREGISTERNODE']._serialized_end=605
+  _globals['_NODEREGISTRATION']._serialized_end=514
+  _globals['_NODEREGISTRATIONREPLY']._serialized_start=516
+  _globals['_NODEREGISTRATIONREPLY']._serialized_end=556
+  _globals['_UNREGISTERNODE']._serialized_start=558
+  _globals['_UNREGISTERNODE']._serialized_end=591
 # @@protoc_insertion_point(module_scope)

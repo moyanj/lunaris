@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketState
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
-from lunaris.proto.client_pb2 import CreateTask
-from lunaris.utils import Rest, bytes2proto
+from lunaris.proto.client_pb2 import CreateTask, TaskCreated
+from lunaris.utils import Rest, bytes2proto, proto2bytes
 import json
 
 app = APIRouter()
@@ -39,6 +39,7 @@ async def tasks(ws: WebSocket, state: AppState = Depends(get_app_state)):
 
                     logger.info(f"Created task with ID: {task.task_id}")
                     state.task_manager.add_task(task, ws)
+                    await ws.send_bytes(proto2bytes(TaskCreated(task_id=task.task_id)))
 
                 elif type(data) is UnsubscribeTask:
                     for task in state.task_manager._tasks_list:

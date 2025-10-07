@@ -22,6 +22,7 @@ class Worker:
     def __init__(
         self,
         master_uri: str,
+        token: str,
         name: Optional[str] = None,
         max_concurrency: Optional[int] = None,
     ) -> None:
@@ -31,6 +32,7 @@ class Worker:
         self.max_concurrency = max_concurrency or psutil.cpu_count() or 1
         self.node_id: str = ""
         self.running = False
+        self.token = token
 
         # WebSocket 连接
         self.ws: Optional[ClientConnection] = None
@@ -89,11 +91,10 @@ class Worker:
 
         registration = NodeRegistration(
             name=self.name,
-            os=platform.system(),
             arch=platform.machine(),
             max_concurrency=self.max_concurrency,
-            num_cpu=psutil.cpu_count(),
             memory_size=psutil.virtual_memory().total // 1048576,
+            token=self.token,
         )
         await self.ws.send(proto2bytes(registration))
 

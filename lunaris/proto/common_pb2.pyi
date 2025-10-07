@@ -18,6 +18,7 @@ class Envelope(_message.Message):
         UNREGISTER_NODE: _ClassVar[Envelope.MessageType]
         CREATE_TASK: _ClassVar[Envelope.MessageType]
         UNSUBSCRIBE_TASK: _ClassVar[Envelope.MessageType]
+        TASK_CREATED: _ClassVar[Envelope.MessageType]
     TASK: Envelope.MessageType
     TASK_RESULT: Envelope.MessageType
     CONTROL_COMMAND: Envelope.MessageType
@@ -27,6 +28,7 @@ class Envelope(_message.Message):
     UNREGISTER_NODE: Envelope.MessageType
     CREATE_TASK: Envelope.MessageType
     UNSUBSCRIBE_TASK: Envelope.MessageType
+    TASK_CREATED: Envelope.MessageType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     type: Envelope.MessageType

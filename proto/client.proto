@@ -9,4 +9,6 @@ message CreateTask {
   int32 priority = 4; // 优先级
 }
 
+message TaskCreated { string task_id = 1; }
+
 message UnsubscribeTask { repeated string task_id = 1; }

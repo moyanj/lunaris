@@ -13,6 +13,7 @@ message Envelope {
     UNREGISTER_NODE = 6;
     CREATE_TASK = 7;
     UNSUBSCRIBE_TASK = 8;
+    TASK_CREATED = 9;
   }
 
   MessageType type = 1;

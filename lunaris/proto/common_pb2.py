@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/common.proto\x12\x0elunaris.common\"\x90\x02\n\x08\x45nvelope\x12\x32\n\x04type\x18\x01 \x01(\x0e\x32$.lunaris.common.Envelope.MessageType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"\xbe\x01\n\x0bMessageType\x12\x08\n\x04TASK\x10\x00\x12\x0f\n\x0bTASK_RESULT\x10\x01\x12\x13\n\x0f\x43ONTROL_COMMAND\x10\x02\x12\x0f\n\x0bNODE_STATUS\x10\x03\x12\x15\n\x11NODE_REGISTRATION\x10\x04\x12\x1b\n\x17NODE_REGISTRATION_REPLY\x10\x05\x12\x13\n\x0fUNREGISTER_NODE\x10\x06\x12\x0f\n\x0b\x43REATE_TASK\x10\x07\x12\x14\n\x10UNSUBSCRIBE_TASK\x10\x08\"n\n\nTaskResult\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\x0e\n\x06stdout\x18\x03 \x01(\t\x12\x0e\n\x06stderr\x18\x04 \x01(\t\x12\x0c\n\x04time\x18\x05 \x01(\x01\x12\x11\n\tsucceeded\x18\x06 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/common.proto\x12\x0elunaris.common\"\xa2\x02\n\x08\x45nvelope\x12\x32\n\x04type\x18\x01 \x01(\x0e\x32$.lunaris.common.Envelope.MessageType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"\xd0\x01\n\x0bMessageType\x12\x08\n\x04TASK\x10\x00\x12\x0f\n\x0bTASK_RESULT\x10\x01\x12\x13\n\x0f\x43ONTROL_COMMAND\x10\x02\x12\x0f\n\x0bNODE_STATUS\x10\x03\x12\x15\n\x11NODE_REGISTRATION\x10\x04\x12\x1b\n\x17NODE_REGISTRATION_REPLY\x10\x05\x12\x13\n\x0fUNREGISTER_NODE\x10\x06\x12\x0f\n\x0b\x43REATE_TASK\x10\x07\x12\x14\n\x10UNSUBSCRIBE_TASK\x10\x08\x12\x10\n\x0cTASK_CREATED\x10\t\"n\n\nTaskResult\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\x0e\n\x06stdout\x18\x03 \x01(\t\x12\x0e\n\x06stderr\x18\x04 \x01(\t\x12\x0c\n\x04time\x18\x05 \x01(\x01\x12\x11\n\tsucceeded\x18\x06 \x01(\x08\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,9 +32,9 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'proto.common_pb2', _globals
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_ENVELOPE']._serialized_start=39
-  _globals['_ENVELOPE']._serialized_end=311
+  _globals['_ENVELOPE']._serialized_end=329
   _globals['_ENVELOPE_MESSAGETYPE']._serialized_start=121
-  _globals['_ENVELOPE_MESSAGETYPE']._serialized_end=311
-  _globals['_TASKRESULT']._serialized_start=313
-  _globals['_TASKRESULT']._serialized_end=423
+  _globals['_ENVELOPE_MESSAGETYPE']._serialized_end=329
+  _globals['_TASKRESULT']._serialized_start=331
+  _globals['_TASKRESULT']._serialized_end=441
 # @@protoc_insertion_point(module_scope)

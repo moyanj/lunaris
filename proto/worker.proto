@@ -35,11 +35,10 @@ message NodeStatus {
 // ========== 节点注册消息 ==========
 message NodeRegistration {
   string name = 1;           // 主机名
-  string os = 2;             // 操作系统
-  string arch = 3;           // 处理器架构
-  int32 max_concurrency = 4; // 最大并发任务数
-  int32 num_cpu = 6;         // CPU核数
-  int32 memory_size = 7;     // 总内存容量（MB）
+  string arch = 2;           // 处理器架构
+  int32 max_concurrency = 3; // 最大并发任务数
+  int32 memory_size = 4;     // 总内存容量（MB）
+  string token = 5;
 }
 
 message NodeRegistrationReply {

@@ -35,10 +35,8 @@ class Worker:
             },
             "registration": {
                 "name": self.registration.name,
-                "os": self.registration.os,
                 "arch": self.registration.arch,
                 "max_concurrency": self.registration.max_concurrency,
-                "num_cpu": self.registration.num_cpu,
                 "memory_size": self.registration.memory_size,
             },
         }

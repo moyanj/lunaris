@@ -1,4 +1,6 @@
 import asyncio
+import os
+import secrets
 from fastapi import FastAPI, WebSocket, Depends
 from fastapi.websockets import WebSocketState, WebSocketDisconnect
 from lunaris.proto import common_pb2
@@ -19,6 +21,8 @@ from loguru import logger
 class AppState:
     worker_manager: WorkerManager = WorkerManager()
     task_manager: TaskManager = TaskManager()
+    client_token: str = os.environ.get("CLIENT_TOKEN", secrets.token_hex(16))
+    worker_token: str = os.environ.get("WORKER_TOKEN", secrets.token_hex(16))
 
     async def close(self):
         await self.worker_manager.close()
@@ -33,6 +37,8 @@ async def lifecycle(app: FastAPI):
     from lunaris.master.api import app as api
 
     app.state.state = AppState()
+    logger.info(f"Worker Token: {app.state.state.worker_token}")
+    logger.info(f"Client Token: {app.state.state.client_token}")
     asyncio.create_task(check_heartbeat(app.state.state))
     asyncio.create_task(destribute_tasks(app.state.state))
     app.include_router(api)
@@ -50,6 +56,8 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
     try:
         registration = bytes2proto(reg_data)
         if type(registration) != NodeRegistration:
+            await ws.close()
+        if not registration.token == state.worker_token:
             await ws.close()
         await state.worker_manager.register(ws, registration)
 
