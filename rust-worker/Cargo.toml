@@ -1,0 +1,9 @@
+[package]
+name = "lunaris-worker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.47.1", features = ["full"] }
+wasmtime = { version = "37.0.2", default-features = false, features = [] }
+wasmtime-wasi = "37.0.2"
