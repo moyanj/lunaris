@@ -6,7 +6,7 @@ message CreateTask {
   bytes wasm_module = 1;
   string args = 2;
   string entry = 3;   // WASM模块入口点
-  int32 priority = 4; // 优先级
+  uint32 priority = 4; // 优先级
 }
 
 message TaskCreated { string task_id = 1; }

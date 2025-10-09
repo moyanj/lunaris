@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/client.proto\x12\x0elunaris.client\"P\n\nCreateTask\x12\x13\n\x0bwasm_module\x18\x01 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\t\x12\r\n\x05\x65ntry\x18\x03 \x01(\t\x12\x10\n\x08priority\x18\x04 \x01(\x05\"\x1e\n\x0bTaskCreated\x12\x0f\n\x07task_id\x18\x01 \x01(\t\"\"\n\x0fUnsubscribeTask\x12\x0f\n\x07task_id\x18\x01 \x03(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/client.proto\x12\x0elunaris.client\"P\n\nCreateTask\x12\x13\n\x0bwasm_module\x18\x01 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\t\x12\r\n\x05\x65ntry\x18\x03 \x01(\t\x12\x10\n\x08priority\x18\x04 \x01(\r\"\x1e\n\x0bTaskCreated\x12\x0f\n\x07task_id\x18\x01 \x01(\t\"\"\n\x0fUnsubscribeTask\x12\x0f\n\x07task_id\x18\x01 \x03(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)

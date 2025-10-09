@@ -8,7 +8,7 @@ message Task {
   bytes wasm_module = 2; // WASM模块
   string args = 3;       // 输入参数（JSON格式）
   string entry = 4;      // 函数名
-  int32 priority = 5;    // 优先级
+  uint32 priority = 5;   // 优先级
 }
 
 // ========== 精简控制命令 ==========
@@ -27,17 +27,17 @@ message NodeStatus {
     IDLE = 0; // 空闲（可接收任务）
     BUSY = 1; // 忙碌（任务满载）
   }
-  string node_id = 1;     // 节点ID
-  NodeState status = 2;   // 节点状态
-  int32 current_task = 3; // 当前正在执行的任务数
+  string node_id = 1;      // 节点ID
+  NodeState status = 2;    // 节点状态
+  uint32 current_task = 3; // 当前正在执行的任务数
 }
 
 // ========== 节点注册消息 ==========
 message NodeRegistration {
-  string name = 1;           // 主机名
-  string arch = 2;           // 处理器架构
-  int32 max_concurrency = 3; // 最大并发任务数
-  int32 memory_size = 4;     // 总内存容量（MB）
+  string name = 1;            // 主机名
+  string arch = 2;            // 处理器架构
+  uint32 max_concurrency = 3; // 最大并发任务数
+  uint64 memory_size = 4;     // 总内存容量（MB）
   string token = 5;
 }
 
