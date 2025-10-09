@@ -9,6 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-test.*
+test*
 
 bin/
