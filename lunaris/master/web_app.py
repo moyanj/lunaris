@@ -16,7 +16,7 @@ import lunaris.proto.worker_pb2 as worker_pb2
 from lunaris.master.manager import WorkerManager, TaskManager
 from lunaris.master.model import Task
 from contextlib import asynccontextmanager
-import json
+import orjson
 from loguru import logger
 
 
@@ -135,7 +135,7 @@ async def destribute_tasks(state: AppState):
                 TaskProto(
                     task_id=task.task_id,
                     wasm_module=task.wasm_module,
-                    args=json.dumps(task.args),
+                    args=orjson.dumps(task.args).decode("utf-8"),
                     entry=task.entry,  # type: ignore
                     priority=task.priority,
                 ),

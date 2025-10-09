@@ -4,7 +4,7 @@ from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
 from lunaris.proto.client_pb2 import CreateTask, TaskCreated
 from lunaris.utils import Rest, bytes2proto, proto2bytes
-import json
+import orjson
 
 app = APIRouter()
 
@@ -34,7 +34,7 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
 
                     task = Task(
                         wasm_module=data.wasm_module,
-                        args=json.loads(data.args),
+                        args=orjson.loads(data.args),
                         entry=data.entry,
                         priority=data.priority,
                     )

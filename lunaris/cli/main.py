@@ -4,6 +4,12 @@ import os
 from lunaris.master.web_app import app as master_app
 from lunaris.worker.main import Worker
 import uvicorn
+import sys
+
+try:
+    import uvloop
+except ImportError:
+    pass
 
 
 def main():
@@ -29,6 +35,16 @@ def main():
 
     args = parser.parse_args()
 
+    try:
+        if args.role == "master":
+            run_master(args)
+        elif args.role == "worker":
+            run_worker(args)
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except Exception as e:
+        sys.exit(1)
+
     if args.role == "master":
         uvicorn.run(master_app, host=args.host, port=args.port)
     elif args.role == "worker":
@@ -41,6 +57,31 @@ def main():
         asyncio.run(worker.run())
     else:
         parser.print_help()
+
+
+def run_master(args):
+    """运行Master节点"""
+
+    uvicorn.run(
+        master_app,
+        host=args.host,
+        port=args.port,
+        workers=1,
+        log_config=None,
+    )
+
+
+def run_worker(args):
+    """运行Worker节点"""
+
+    worker = Worker(
+        master_uri=args.master_uri,
+        token=args.token,
+        name=args.name,
+        max_concurrency=args.concurrency,
+    )
+
+    asyncio.run(worker.run())
 
 
 if __name__ == "__main__":

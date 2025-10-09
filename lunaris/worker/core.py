@@ -4,7 +4,7 @@ from typing import Optional, Callable, Any
 import psutil
 from lunaris.proto.worker_pb2 import Task
 from lunaris.runtime import WasmResult, WasmSandbox
-import json
+import orjson
 import multiprocessing
 from loguru import logger
 
@@ -114,8 +114,8 @@ class Runner:
         """
         logger.info(f"Submit task {task.task_id} to the runner")
         try:
-            args = json.loads(task.args)
-        except json.JSONDecodeError:
+            args = orjson.loads(task.args)
+        except orjson.JSONDecodeError:
             args = []
 
         self.executor.submit(

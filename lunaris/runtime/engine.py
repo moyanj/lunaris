@@ -1,4 +1,4 @@
-import json
+import orjson
 from io import StringIO
 import time
 from dataclasses import dataclass
@@ -53,7 +53,7 @@ class WasmSandbox:
         run_time = time.perf_counter() - start_time
 
         try:
-            result = json.dumps(result)
+            result = orjson.dumps(result).decode("utf-8")
 
             return WasmResult(
                 result=result,
