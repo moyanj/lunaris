@@ -2,12 +2,15 @@ use anyhow::{Context, Result, anyhow};
 use prost::Message;
 use zstd::stream;
 
+#[allow(unused)]
 pub mod common {
     include!(concat!(env!("OUT_DIR"), "/lunaris.common.rs"));
 }
+#[allow(unused)]
 pub mod worker {
     include!(concat!(env!("OUT_DIR"), "/lunaris.worker.rs"));
 }
+#[allow(unused)]
 pub mod client {
     include!(concat!(env!("OUT_DIR"), "/lunaris.client.rs"));
 }
@@ -41,7 +44,7 @@ pub fn from_bytes(bytes: &[u8]) -> Result<Box<dyn Message + 'static>> {
 }
 
 pub fn to_bytes(obj_buf: &Vec<u8>, message_type: MessageType) -> Result<Vec<u8>> {
-    let compressed_payload = stream::encode_all(&obj_buf[..], 7)?;
+    let compressed_payload = stream::encode_all(&obj_buf[..], 3)?;
     let envelope = common::Envelope {
         r#type: message_type as i32,
         payload: compressed_payload,

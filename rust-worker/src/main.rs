@@ -1,6 +1,10 @@
+use clap::Parser;
+
+mod cli;
+mod engine;
 mod proto;
 
-fn main() {
-    println!("Hello, world!");
-    println!("{}", env!("OUT_DIR"));
+#[tokio::main]
+async fn main() {
+    let args = cli::Cli::parse();
 }
