@@ -13,6 +13,7 @@ from typing import Any, Optional, Type
 from fastapi.responses import JSONResponse
 import time
 import threading
+import zstandard
 
 
 def Rest(msg: str = "OK", status_code: int = 200, data=None):
@@ -59,12 +60,16 @@ def bytes2proto(
 ) -> Any:
     """将字节数据转换为对应的proto对象"""
     envelope = Envelope.FromString(data)
+
     message_class = MESSAGE_TYPE_MAP.get(envelope.type)
 
     if not message_class:
         raise ValueError(f"Unknown message type: {envelope.type}")
-
-    return message_class.FromString(envelope.payload)
+    if envelope.compressed:
+        payload = zstandard.ZstdDecompressor().decompress(envelope.payload)
+    else:
+        payload = envelope.payload
+    return message_class.FromString(payload)
 
 
 def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
@@ -79,7 +84,8 @@ def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
 
     envelope = Envelope()
     envelope.type = message_type
-    envelope.payload = obj.SerializeToString()
+    envelope.payload = zstandard.ZstdCompressor().compress(obj.SerializeToString())
+    envelope.compressed = True
     return envelope.SerializeToString()
 
 

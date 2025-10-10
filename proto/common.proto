@@ -18,6 +18,7 @@ message Envelope {
 
   MessageType type = 1;
   bytes payload = 2;
+  bool compressed = 3;
 }
 
 message TaskResult {

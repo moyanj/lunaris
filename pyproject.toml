@@ -14,4 +14,5 @@ dependencies = [
     "uvloop>=0.21.0",
     "wasmtime>=36.0.0",
     "websockets>=15.0.1",
+    "zstandard>=0.25.0",
 ]

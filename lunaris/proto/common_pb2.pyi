@@ -6,7 +6,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Envelope(_message.Message):
-    __slots__ = ("type", "payload")
+    __slots__ = ("type", "payload", "compressed")
     class MessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TASK: _ClassVar[Envelope.MessageType]
@@ -31,9 +31,11 @@ class Envelope(_message.Message):
     TASK_CREATED: Envelope.MessageType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    COMPRESSED_FIELD_NUMBER: _ClassVar[int]
     type: Envelope.MessageType
     payload: bytes
-    def __init__(self, type: _Optional[_Union[Envelope.MessageType, str]] = ..., payload: _Optional[bytes] = ...) -> None: ...
+    compressed: bool
+    def __init__(self, type: _Optional[_Union[Envelope.MessageType, str]] = ..., payload: _Optional[bytes] = ..., compressed: _Optional[bool] = ...) -> None: ...
 
 class TaskResult(_message.Message):
     __slots__ = ("task_id", "result", "stdout", "stderr", "time", "succeeded")
