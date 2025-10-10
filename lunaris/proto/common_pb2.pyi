@@ -47,8 +47,8 @@ class TaskResult(_message.Message):
     SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
     task_id: str
     result: str
-    stdout: str
-    stderr: str
+    stdout: bytes
+    stderr: bytes
     time: float
     succeeded: bool
-    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[str] = ..., stderr: _Optional[str] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ...) -> None: ...

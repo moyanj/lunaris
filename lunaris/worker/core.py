@@ -45,8 +45,8 @@ def _execute_task(
         logger.error(f"Error executing task: {str(e)}")
         result = WasmResult(
             result="",
-            stdout="",
-            stderr=str(e),
+            stdout="".encode("utf-8"),
+            stderr=str(e).encode("utf-8"),
             time=0,
             succeeded=False,
         )

@@ -1,16 +1,19 @@
+import os
+import sys
 import orjson
 from io import StringIO
 import time
 from dataclasses import dataclass
 
 from wasmtime import Engine, Store, WasiConfig, Module, Linker
+import tempfile
 
 
 @dataclass
 class WasmResult:
     result: str
-    stdout: str
-    stderr: str
+    stdout: bytes
+    stderr: bytes
     time: float
     succeeded: bool = True
 
@@ -18,17 +21,8 @@ class WasmResult:
 class WasmSandbox:
     def __init__(self):
         self.engine = Engine()
-        self.store = Store(self.engine)
         self.wasm_stdout = StringIO()
         self.wasm_stderr = StringIO()
-
-        self.init()
-
-    def init(self):
-        wasi = WasiConfig()
-        # wasi.stdout_file = self.wasm_stdout
-        # wasi.stderr_file = self.wasm_stderr
-        self.store.set_wasi(wasi)
 
     def run(
         self,
@@ -46,26 +40,45 @@ class WasmSandbox:
         module = Module(self.engine, module_code)
         linker = Linker(self.engine)
         linker.define_wasi()
-        instance = linker.instantiate(self.store, module)
-        main_func = instance.exports(self.store)[entry]
+
+        store = Store(self.engine)
+        wasi = WasiConfig()
+        fd, stdout_temp = tempfile.mkstemp()
+        os.close(fd)
+        wasi.stdout_file = stdout_temp
+        fd, stderr_temp = tempfile.mkstemp()
+        os.close(fd)
+        wasi.stderr_file = stderr_temp
+        store.set_wasi(wasi)
+
+        instance = linker.instantiate(store, module)
+        main_func = instance.exports(store)[entry]
+
         start_time = time.perf_counter()
-        result = main_func(self.store, *args)  # type: ignore
+        result = main_func(store, *args)  # type: ignore
         run_time = time.perf_counter() - start_time
+
+        with open(stdout_temp, "rb") as f:
+            stdout = f.read()
+        with open(stderr_temp, "rb") as f:
+            stderr = f.read()
+        os.remove(stdout_temp)
+        os.remove(stderr_temp)
 
         try:
             result = orjson.dumps(result).decode("utf-8")
 
             return WasmResult(
                 result=result,
-                stdout=self.wasm_stdout.getvalue(),
-                stderr=self.wasm_stderr.getvalue(),
+                stdout=stdout,
+                stderr=stderr,
                 time=run_time * 1000,
             )
         except Exception as e:
             return WasmResult(
                 result="",
-                stdout=self.wasm_stdout.getvalue(),
-                stderr="".format(e),
+                stdout=stdout,
+                stderr="".format(e).encode("utf-8"),
                 time=run_time * 1000,
                 succeeded=False,
             )
