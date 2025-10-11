@@ -66,7 +66,7 @@ def bytes2proto(
     if not message_class:
         raise ValueError(f"Unknown message type: {envelope.type}")
     if envelope.compressed:
-        payload = zstandard.ZstdDecompressor().decompress(envelope.payload)
+        payload = zstandard.decompress(envelope.payload)
     else:
         payload = envelope.payload
     return message_class.FromString(payload)
@@ -84,7 +84,7 @@ def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
 
     envelope = Envelope()
     envelope.type = message_type
-    envelope.payload = zstandard.ZstdCompressor().compress(obj.SerializeToString())
+    envelope.payload = zstandard.compress(obj.SerializeToString())
     envelope.compressed = True
     return envelope.SerializeToString()
 

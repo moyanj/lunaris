@@ -17,12 +17,12 @@ pub struct WasmResult {
 
 pub struct Runner {
     wasm_engine: Engine,
-    max_workers: usize,
     result_tx: mpsc::Sender<(WasmResult, String)>,
     concurrency: Arc<Semaphore>, // 用信号量控制最大并发数
 }
 
 impl Runner {
+    #[allow(unused)]
     pub fn new<F>(max_workers: usize, report_callback: F) -> Self
     where
         F: Fn(WasmResult, String) + Send + Sync + 'static,
@@ -41,8 +41,20 @@ impl Runner {
 
         Self {
             wasm_engine: Engine::default(),
-            max_workers,
             result_tx: tx,
+            concurrency: semaphore,
+        }
+    }
+
+    pub fn new_with_channel(
+        max_workers: usize,
+        result_tx: mpsc::Sender<(WasmResult, String)>,
+    ) -> Self {
+        let semaphore = Arc::new(Semaphore::new(max_workers));
+
+        Self {
+            wasm_engine: Engine::default(),
+            result_tx,
             concurrency: semaphore,
         }
     }
@@ -59,9 +71,10 @@ impl Runner {
         // 提交到阻塞线程池执行
         tokio::task::spawn_blocking(move || match run_wasm(&engine, &code, &args_json, &entry) {
             Ok(result) => {
-                tokio::runtime::Handle::current().block_on(async move {
-                    tx.send((result, task_id)).await.unwrap();
-                });
+                // 使用当前运行时发送结果
+                if let Err(e) = tx.blocking_send((result, task_id)) {
+                    eprintln!("Failed to send result: {}", e);
+                }
             }
             Err(e) => {
                 let err_result = WasmResult {
@@ -71,9 +84,9 @@ impl Runner {
                     time: 0.0,
                     succeeded: false,
                 };
-                tokio::runtime::Handle::current().block_on(async move {
-                    tx.send((err_result, task_id)).await.unwrap();
-                });
+                if let Err(e) = tx.blocking_send((err_result, task_id)) {
+                    eprintln!("Failed to send error result: {}", e);
+                }
             }
         });
 
@@ -83,13 +96,14 @@ impl Runner {
 
 fn run_wasm(wasm_engine: &Engine, code: &[u8], args_json: &str, entry: &str) -> Result<WasmResult> {
     let module = Module::new(wasm_engine, code)?;
-    let mut linker = Linker::new(&wasm_engine);
+    let mut linker = Linker::new(wasm_engine);
     wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s| s)?;
 
     let wasi = WasiCtx::builder().inherit_stdio().inherit_args().build_p1();
-    let mut store = Store::new(&wasm_engine, wasi);
+    let mut store = Store::new(wasm_engine, wasi);
 
     let instance = linker.instantiate(&mut store, &module)?;
+
     // Parse JSON arguments
     let json_value: Value = from_str(args_json)?;
     let args_array = json_value
