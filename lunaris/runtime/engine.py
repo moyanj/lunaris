@@ -21,8 +21,6 @@ class WasmResult:
 class WasmSandbox:
     def __init__(self):
         self.engine = Engine()
-        self.wasm_stdout = StringIO()
-        self.wasm_stderr = StringIO()
 
     def run(
         self,
