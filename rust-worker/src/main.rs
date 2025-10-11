@@ -9,6 +9,9 @@ mod proto;
 use cli::Cli;
 use core::Worker;
 
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 初始化日志
