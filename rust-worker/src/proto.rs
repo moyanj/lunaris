@@ -30,7 +30,7 @@ pub fn from_bytes(bytes: &[u8]) -> Result<(Vec<u8>, MessageType)> {
 }
 
 pub fn to_bytes(obj_buf: &Vec<u8>, message_type: MessageType) -> Result<Vec<u8>> {
-    let mut compressed_payload: Vec<u8> = obj_buf.clone();
+    let compressed_payload: Vec<u8> = obj_buf.clone();
     /*
     zstd::encode_all(&mut compressed_payload, &obj_buf[..], 3)?;*/
     let envelope = common::Envelope {

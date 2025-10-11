@@ -27,18 +27,12 @@ impl Worker {
     pub async fn new(
         master_uri: &str,
         token: &str,
-        name: Option<&str>,
-        max_concurrency: Option<usize>,
+        name: String,
+        max_concurrency: usize,
     ) -> Result<Self> {
-        let name = name
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("worker-{}", hex::encode(rand::random::<[u8; 8]>())));
-
-        let max_concurrency = max_concurrency.unwrap_or_else(|| num_cpus::get());
-
         Ok(Self {
             master_uri: master_uri.to_string(),
-            name,
+            name: name,
             token: token.to_string(),
             max_concurrency,
             node_id: String::new(),
@@ -171,7 +165,6 @@ impl Worker {
             {
                 let mut num_running = self.num_running.lock().await;
                 *num_running += 1;
-                println!("Number of running tasks: {}", *num_running);
             }
 
             runner.submit(task).await?;
@@ -231,7 +224,7 @@ impl Worker {
                         if let Err(e) =
                             Self::report_result_static(&mut write_guard, result, task_id).await
                         {
-                            eprintln!("Failed to report result: {}", e);
+                            error!("Failed to report result: {}", e);
                         }
                     }
 
@@ -252,18 +245,18 @@ impl Worker {
                             if let MessageType::Task = tp {
                                 if let Ok(task) = worker::Task::decode(proto_message.as_ref()) {
                                     if let Err(e) = self.handle_task(task).await {
-                                        eprintln!("Failed to handle task: {}", e);
+                                        error!("Failed to handle task: {}", e);
                                     }
                                 }
                             }
                         }
                     }
                     Ok(Message::Close(_)) => {
-                        println!("Connection closed by master");
+                        error!("Connection closed by master");
                         break;
                     }
                     Err(e) => {
-                        println!("WebSocket error: {}", e);
+                        error!("WebSocket error: {}", e);
                         break;
                     }
                     _ => {}

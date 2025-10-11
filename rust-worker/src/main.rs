@@ -1,5 +1,5 @@
 use clap::Parser;
-use tracing::info;
+use tracing::{error, info};
 
 mod cli;
 mod core;
@@ -16,22 +16,24 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Cli::parse();
 
+    let name = args
+        .name
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("worker-{}", hex::encode(rand::random::<[u8; 8]>())));
+    let concurrency = args.concurrency.unwrap_or(num_cpus::get());
+
     info!("Starting Lunaris worker...");
     info!("Connecting to master: {}", args.master);
-    info!("Worker name: {}", args.name.as_deref().unwrap_or("unknown"));
-    info!("Max concurrency: {}", args.concurrency.unwrap_or(1));
+    info!("Worker name: {}", name);
+    info!("Max concurrency: {}", concurrency);
 
     // 创建worker
-    let mut worker = Worker::new(
-        &args.master,
-        &args.token,
-        args.name.as_deref(),
-        args.concurrency,
-    )
-    .await?;
+    let mut worker = Worker::new(&args.master, &args.token, name, concurrency).await?;
 
     // 运行worker
-    worker.run().await.unwrap();
+    if let Err(e) = worker.run().await {
+        error!("Worker shutdown failed: {}", e);
+    }
 
     info!("Worker shutdown complete");
     Ok(())
