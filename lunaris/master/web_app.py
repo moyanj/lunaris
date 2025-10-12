@@ -18,6 +18,7 @@ from lunaris.master.model import Task
 from contextlib import asynccontextmanager
 import orjson
 from loguru import logger
+from lunaris.master import init_logger
 
 
 class AppState:
@@ -36,6 +37,7 @@ def get_app_state() -> AppState:
 
 @asynccontextmanager
 async def lifecycle(app: FastAPI):
+    init_logger()
     from lunaris.master.api import app as api
 
     app.state.state = AppState()

@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import os
 from lunaris.worker.main import Worker
+from lunaris.master.web_app import app as master_app
 import uvicorn
 import sys
 

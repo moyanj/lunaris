@@ -1,5 +1,6 @@
 import uvicorn
 from lunaris.master.web_app import app
+from lunaris.master import init_logger
 from loguru import logger
 
 if __name__ == "__main__":

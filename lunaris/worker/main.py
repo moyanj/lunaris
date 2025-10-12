@@ -17,6 +17,7 @@ from lunaris.proto.common_pb2 import TaskResult
 from lunaris.runtime.engine import WasmResult
 from lunaris.worker.core import Runner
 from loguru import logger
+from lunaris.worker import init_logger
 
 
 class Worker:
@@ -27,6 +28,7 @@ class Worker:
         name: Optional[str] = None,
         max_concurrency: Optional[int] = None,
     ) -> None:
+        init_logger()
         # Worker 配置
         self.master_uri = master_uri
         self.name = name or f"worker-{secrets.token_hex(8)}"
