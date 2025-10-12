@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Callable, Optional, Dict, Any, List
+from typing import Callable, Optional, Dict, Any, List, Union
 from websockets import connect, ConnectionClosed
 from lunaris.proto.client_pb2 import CreateTask, UnsubscribeTask, TaskCreated
 from lunaris.proto.common_pb2 import TaskResult
@@ -36,7 +36,7 @@ class LunarisClient:
 
     async def submit_task(
         self,
-        wasm_module: bytes,
+        wasm_module: Union[bytes, str],
         args: Optional[List[Any]] = None,
         entry: str = "main",
         priority: int = 0,
@@ -58,8 +58,11 @@ class LunarisClient:
         if not self.websocket:
             raise RuntimeError("Client not connected")
 
+        if type(wasm_module) is str:
+            wasm_module = wasm_module.encode("utf-8")
+
         create_task = CreateTask(
-            wasm_module=wasm_module,
+            wasm_module=wasm_module,  # type: ignore
             args=json.dumps(args or []),
             entry=entry,
             priority=priority,
