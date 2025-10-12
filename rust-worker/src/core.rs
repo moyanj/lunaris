@@ -148,8 +148,8 @@ impl Worker {
         let task_result = common::TaskResult {
             task_id,
             result: result.result,
-            stdout: result.stdout.into_bytes(),
-            stderr: result.stderr.into_bytes(),
+            stdout: result.stdout,
+            stderr: result.stderr,
             time: result.time,
             succeeded: result.succeeded,
         };
@@ -281,8 +281,8 @@ impl Worker {
         let task_result = common::TaskResult {
             task_id,
             result: result.result,
-            stdout: result.stdout.into_bytes(),
-            stderr: result.stderr.into_bytes(),
+            stdout: result.stdout,
+            stderr: result.stderr,
             time: result.time,
             succeeded: result.succeeded,
         };

@@ -3,14 +3,14 @@ use serde_json::{Value, from_str, json};
 use std::sync::Arc;
 use tokio::sync::{Semaphore, mpsc};
 use wasmtime::*;
-use wasmtime_wasi::WasiCtx;
+use wasmtime_wasi::{WasiCtx, p2::pipe::MemoryOutputPipe};
 
 use crate::proto::worker;
 
 pub struct WasmResult {
     pub result: String,
-    pub stdout: String,
-    pub stderr: String,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
     pub time: f64,
     pub succeeded: bool,
 }
@@ -79,8 +79,8 @@ impl Runner {
             Err(e) => {
                 let err_result = WasmResult {
                     result: String::new(),
-                    stdout: String::new(),
-                    stderr: e.to_string(),
+                    stdout: vec![],
+                    stderr: e.to_string().as_bytes().to_vec(),
                     time: 0.0,
                     succeeded: false,
                 };
@@ -99,7 +99,14 @@ fn run_wasm(wasm_engine: &Engine, code: &[u8], args_json: &str, entry: &str) -> 
     let mut linker = Linker::new(wasm_engine);
     wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s| s)?;
 
-    let wasi = WasiCtx::builder().inherit_stdio().inherit_args().build_p1();
+    let stdout = MemoryOutputPipe::new(512);
+    let stderr = MemoryOutputPipe::new(512);
+
+    let wasi = WasiCtx::builder()
+        .stdout(stdout.clone())
+        .stderr(stderr.clone())
+        .inherit_args()
+        .build_p1();
     let mut store = Store::new(wasm_engine, wasi);
 
     let instance = linker.instantiate(&mut store, &module)?;
@@ -150,11 +157,10 @@ fn run_wasm(wasm_engine: &Engine, code: &[u8], args_json: &str, entry: &str) -> 
 
     // Convert result to string
     let result_str = serde_json::to_string(&wasm_results_to_json(&results))?;
-
     Ok(WasmResult {
         result: result_str,
-        stdout: "".to_string(), // You might want to capture stdout/stderr
-        stderr: "".to_string(), // using wasi pipes in the future
+        stdout: stdout.contents().to_vec(),
+        stderr: stderr.contents().to_vec(),
         time,
         succeeded: true,
     })
