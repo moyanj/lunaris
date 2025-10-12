@@ -45,7 +45,7 @@ class LunarisClient:
         self,
         wasm_module: Union[bytes, str],
         args: Optional[List[Any]] = None,
-        entry: str = "main",
+        entry: str = "wmain",
         priority: int = 0,
         wasi_env: Optional[WasiEnv] = None,
         callback: Optional[Callable] = None,
@@ -95,6 +95,59 @@ class LunarisClient:
         except asyncio.TimeoutError:
             self._create_futures.pop("pending", None)
             raise RuntimeError("Task creation timeout")
+
+    async def submit_task_many(
+        self,
+        wasm_module: Union[bytes, str],
+        args_list: List[List[Any]],
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        timeout: Optional[float] = None,
+    ) -> List[TaskResult]:
+        """
+        并发提交多个任务，除 args 外其他参数相同
+        Args:
+            wasm_module: WASM模块字节码
+            args_list: 多组参数列表，每个元素是一个 args 列表
+            entry: 入口函数名
+            priority: 任务优先级
+            wasi_env: 环境参数
+            timeout: 超时时间（秒）
+        Returns:
+            所有任务结果列表，顺序与 args_list 一致
+        """
+        futures = []
+        task_ids = []
+        # 提交所有任务并为每个任务创建 future
+        for args in args_list:
+            future = asyncio.Future()
+            # 提交任务
+            task_id = await self.submit_task(
+                wasm_module=wasm_module,
+                args=args,
+                entry=entry,
+                priority=priority,
+                wasi_env=wasi_env,
+                callback=lambda result, fut=future: fut.set_result(result),
+            )
+            task_ids.append(task_id)
+            futures.append(future)
+        try:
+            # 使用 asyncio.wait 等待所有 future 完成
+            done, pending = await asyncio.wait(
+                futures, timeout=timeout, return_when=asyncio.ALL_COMPLETED
+            )
+            if pending:
+                # 可选：取消未完成的任务
+                await self.unsubscribe_tasks(
+                    [task_ids[i] for i, f in enumerate(futures) if f in pending]
+                )
+                raise asyncio.TimeoutError(f"Timeout waiting for {len(pending)} tasks")
+            # 返回结果，保持顺序
+            return [future.result() for future in futures]
+        except asyncio.TimeoutError:
+            raise
 
     '''
     async def get_task_result(self, task_id: str) -> Optional[Dict[str, Any]]:

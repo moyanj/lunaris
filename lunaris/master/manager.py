@@ -154,7 +154,6 @@ class TaskManager:
         self.task_queue.put_nowait(task)
         self._tasks_dict[task.task_id] = task
         self.task_websockets[task.task_id] = ws
-        logger.info(f"Task {task.task_id} added with status: {task.status}")
 
     async def get(self) -> Task:
         """获取任务并标记为已分配"""
