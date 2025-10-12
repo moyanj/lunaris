@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, List
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
 from lunaris.proto.worker_pb2 import (
@@ -12,27 +12,29 @@ from dataclasses import dataclass, field
 import secrets
 from lunaris.utils import proto2bytes
 from datetime import datetime, timedelta
-from lunaris.master.model import Task
+from lunaris.master.model import Task, TaskStatus
 import asyncio
 from loguru import logger
 
 
 @dataclass
 class Worker:
-    __solt__ = ["node_id", "last_heartbeat", "status", "registration"]
     websocket: WebSocket
     registration: NodeRegistration
     node_id: str = field(default_factory=lambda: secrets.token_hex(16))
     last_heartbeat: datetime = datetime.now()
     status: Optional[NodeStatus] = None
+    current_tasks: List[str] = field(default_factory=list)  # 当前正在执行的任务ID列表
 
     def to_dict(self) -> dict:
         return {
             "node_id": self.node_id,
             "last_heartbeat": self.last_heartbeat.isoformat(),
             "status": {
-                "current_task": self.status.current_task if self.status else None
+                "current_task": self.status.current_task if self.status else None,
+                "state": self.status.status if self.status else None,
             },
+            "current_tasks": self.current_tasks,
             "registration": {
                 "name": self.registration.name,
                 "arch": self.registration.arch,
@@ -41,10 +43,32 @@ class Worker:
             },
         }
 
+    def add_task(self, task_id: str):
+        """添加任务到worker的当前任务列表"""
+        if task_id not in self.current_tasks:
+            self.current_tasks.append(task_id)
+
+    def remove_task(self, task_id: str):
+        """从worker的当前任务列表中移除任务"""
+        if task_id in self.current_tasks:
+            self.current_tasks.remove(task_id)
+
+    @property
+    def current_load(self) -> int:
+        """返回worker的当前负载（正在执行的任务数）"""
+        return len(self.current_tasks)
+
+    @property
+    def available_slots(self) -> int:
+        """返回worker的可用任务槽位"""
+        if self.registration:
+            return max(0, self.registration.max_concurrency - self.current_load)
+        return 0
+
 
 class WorkerManager:
     def __init__(self):
-        self.workers: list[Worker] = []
+        self.workers: List[Worker] = []
         self.result = {}
         self.condition = asyncio.Condition()
 
@@ -54,30 +78,29 @@ class WorkerManager:
         self.workers.append(worker)
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
 
-    def get_worker(self, node_id: str):
+    def get_worker(self, node_id: str) -> Optional[Worker]:
         for worker in self.workers:
             if worker.node_id == node_id:
                 return worker
+        return None
 
-    async def get(self) -> Worker:
+    async def get_available_worker(self) -> Optional[Worker]:
+        """获取可用的worker，考虑当前负载"""
         async with self.condition:
             while True:
-                # 寻找空闲且负载最低的worker
-                idle_workers = []
+                available_workers = []
                 for worker in self.workers:
                     if (
                         worker.status
                         and worker.status.status == NodeStatus.NodeState.IDLE
                         and worker.websocket.client_state == WebSocketState.CONNECTED
+                        and worker.available_slots > 0
                     ):
-                        idle_workers.append(worker)
+                        available_workers.append(worker)
 
-                if idle_workers:
-                    # 按当前任务数排序，选择负载最轻的
-                    return min(
-                        idle_workers,
-                        key=lambda w: w.status.current_task if w.status else 0,
-                    )
+                if available_workers:
+                    # 按可用槽位降序排序，选择最空闲的worker
+                    return max(available_workers, key=lambda w: w.available_slots)
 
                 # 没有可用worker，等待通知
                 await self.condition.wait()
@@ -87,9 +110,9 @@ class WorkerManager:
             if worker.websocket.client_state != WebSocketState.DISCONNECTED:
                 await worker.websocket.close()
 
-    async def handle_heartbeat(self, worker: WebSocket, status: NodeStatus):
+    async def handle_heartbeat(self, worker_ws: WebSocket, status: NodeStatus):
         for w in self.workers:
-            if w.websocket == worker:
+            if w.websocket == worker_ws:
                 w.last_heartbeat = datetime.now()
                 w.status = status
                 break
@@ -98,120 +121,128 @@ class WorkerManager:
 
     async def remove_inactive_workers(self):
         cutoff_time = datetime.now() - timedelta(seconds=20)
+        workers_to_remove = []
+
         for w in self.workers:
             if w.websocket.client_state == WebSocketState.DISCONNECTED:
-                logger.info(f"Removing inactive worker: {w.node_id}")
-                self.workers.remove(w)
+                workers_to_remove.append(w)
                 continue
 
             if w.last_heartbeat < cutoff_time:
-                logger.info(f"Removing inactive worker: {w.node_id}")
-                try:
-                    if w.websocket.client_state != WebSocketState.DISCONNECTED:
-                        await w.websocket.close()
-                except:
-                    pass
-                self.workers.remove(w)
+                workers_to_remove.append(w)
+
+        for w in workers_to_remove:
+            logger.info(f"Removing inactive worker: {w.node_id}")
+            try:
+                if w.websocket.client_state != WebSocketState.DISCONNECTED:
+                    await w.websocket.close()
+            except:
+                pass
+            self.workers.remove(w)
 
 
 class TaskManager:
     def __init__(self):
         self.task_queue: asyncio.PriorityQueue[Task] = asyncio.PriorityQueue()
-        self._tasks_list: list[Task] = []
-        self.running_tasks = {}
-        self.failed_count = {}
-        self.task_websockets: dict[str, WebSocket] = (
-            {}
-        )  # 存储 task_id 和 WebSocket 的对应关系
+        self._tasks_dict: Dict[str, Task] = {}  # 任务ID到Task对象的映射
+        self.running_tasks: Dict[str, Task] = {}  # 正在运行的任务
+        self.failed_count: Dict[str, int] = {}
+        self.task_websockets: Dict[str, WebSocket] = {}
         self.result = deque(maxlen=1024)
 
     def add_task(self, task: Task, ws: WebSocket) -> None:
         self.task_queue.put_nowait(task)
-        self._tasks_list.append(task)
-        self.task_websockets[task.task_id] = ws  # 存储 WebSocket 连接
-        # 为了保持 _tasks_list 的一致性，每次添加后都排序
-        self._sort_tasks_list()
-
-    def _sort_tasks_list(self):
-        """
-        内部排序方法：按重要度降序排序，重要度相同则按时间戳升序（先添加的在前）。
-        用于维护 self._tasks_list 的顺序。
-        """
-        # 注意这里使用原始的 importance 和 timestamp 进行排序
-        self._tasks_list.sort(key=lambda t: (-t.priority, t.task_id))
+        self._tasks_dict[task.task_id] = task
+        self.task_websockets[task.task_id] = ws
+        logger.info(f"Task {task.task_id} added with status: {task.status}")
 
     async def get(self) -> Task:
-        """
-        异步获取当前最重要的任务。
-        如果队列为空，此方法将阻塞，直到有任务可用。
-        返回 Task 实例。
-        """
-
+        """获取任务并标记为已分配"""
         task = await self.task_queue.get()
-
-        if task in self._tasks_list:
-            self._tasks_list.remove(task)
-            self.running_tasks[task.task_id] = task
+        # 注意：这里不标记为RUNNING，因为还没有实际分配给worker
         return task
 
-    def all(self) -> list[Task]:
-        """
-        返回当前所有任务，按重要度降序，重要度相同按添加时间排序。
-        这是一个同步方法，直接返回内部维护的列表。
-        """
-        # _tasks_list 已经在 add_task 中维护了排序
-        return self._tasks_list[:]  # 返回副本，防止外部修改
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """根据任务ID获取任务"""
+        return self._tasks_dict.get(task_id)
 
-    async def put_result(self, result: TaskResult) -> None:
-        """
-        处理任务执行结果，包括成功、失败重试和永久失败。
-        """
+    def all(self) -> List[Task]:
+        """获取所有任务"""
+        return list(self._tasks_dict.values())
+
+    def get_tasks_by_status(self, status: TaskStatus) -> List[Task]:
+        """根据状态获取任务"""
+        return [task for task in self._tasks_dict.values() if task.status == status]
+
+    def get_tasks_by_worker(self, worker_id: str) -> List[Task]:
+        """获取分配给指定worker的任务"""
+        return [
+            task
+            for task in self._tasks_dict.values()
+            if task.assigned_worker == worker_id
+        ]
+
+    async def assign_task_to_worker(self, task: Task, worker: Worker):
+        """将任务分配给worker"""
+        task.assign_to_worker(worker.node_id)
+        worker.add_task(task.task_id)
+        self.running_tasks[task.task_id] = task
+        logger.info(f"Task {task.task_id} assigned to worker {worker.node_id}")
+
+    async def put_result(
+        self, result: TaskResult, worker_manager: WorkerManager
+    ) -> None:
+        """处理任务执行结果"""
         logger.debug(f"Task Result: {result}")
-        # 在正在运行的任务集合中查找对应的任务对象
-        task_to_process = self.running_tasks.get(result.task_id)
 
-        if not task_to_process:
-            logger.warning(
-                f"Received a task result that is not in running: {result.task_id}"
-            )
+        task = self.running_tasks.get(result.task_id)
+        if not task:
+            logger.warning(f"Received result for unknown task: {result.task_id}")
             return
 
-        # 任务已结束（无论成功或失败），将其从运行集合中移除
+        # 更新worker状态
+        worker = worker_manager.get_worker(task.assigned_worker)  # type: ignore
+        if worker:
+            worker.remove_task(result.task_id)
+
+        # 从运行任务中移除
         self.running_tasks.pop(result.task_id)
+
         if result.succeeded:
+            task.mark_completed()
             ws = self.task_websockets.get(result.task_id)
-            if ws is None:
-                logger.error("No websocket found for task")
-            else:
+            if ws:
                 await ws.send_bytes(proto2bytes(result))
             self.result.append(result)
-            logger.info(f"Task {result.task_id} done.")
-            # 如果任务之前有失败记录，清理掉
+            logger.info(f"Task {result.task_id} completed successfully")
+
+            # 清理失败计数
             if result.task_id in self.failed_count:
                 del self.failed_count[result.task_id]
+
         else:
-            # 任务失败，增加失败计数
+            # 任务失败处理
             failure_count = self.failed_count.get(result.task_id, 0) + 1
             self.failed_count[result.task_id] = failure_count
 
             logger.error(f"Task {result.task_id} failed (attempt {failure_count})")
 
-            if failure_count >= 3:
-                # 达到最大重试次数，标记为永久失败并存储结果
-                logger.error(
-                    f"Task {result.task_id} has reached the maximum number of retries."
-                )
+            if failure_count >= task.max_retries:
+                # 达到最大重试次数
+                task.mark_failed()
+                logger.error(f"Task {result.task_id} reached maximum retries")
                 ws = self.task_websockets.get(result.task_id)
-                if ws is None:
-                    logger.error("No websocket found for task")
-                else:
+                if ws:
                     await ws.send_bytes(proto2bytes(result))
                 self.result.append(result)
-                logger.info(f"Task {result.task_id} done.")
                 # 清理失败计数
                 del self.failed_count[result.task_id]
             else:
-                # 未达到最大重试次数，将任务重新加入队列
-                logger.info(f"Retring task {result.task_id} ")
+                # 重试任务
+                task.mark_retrying()
+                logger.info(
+                    f"Retrying task {result.task_id} (attempt {failure_count + 1})"
+                )
                 ws = self.task_websockets.get(result.task_id)
-                self.add_task(task_to_process, ws)  # type: ignore
+                if ws:
+                    self.add_task(task, ws)

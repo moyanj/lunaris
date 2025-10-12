@@ -42,7 +42,7 @@ async def lifecycle(app: FastAPI):
     logger.info(f"Worker Token: {app.state.state.worker_token}")
     logger.info(f"Client Token: {app.state.state.client_token}")
     asyncio.create_task(check_heartbeat(app.state.state))
-    asyncio.create_task(destribute_tasks(app.state.state))
+    asyncio.create_task(distribute_tasks(app.state.state))
     app.include_router(api)
     yield
     await app.state.state.close()
@@ -59,12 +59,13 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         try:
             reg_data = await asyncio.wait_for(ws.receive_bytes(), timeout=10.0)
         except asyncio.TimeoutError:
-            await ws.close()  # 自定义关闭码，表示超时
+            await ws.close()
             return
 
         registration = bytes2proto(reg_data)
         if type(registration) != NodeRegistration:
             await ws.close()
+            return
         if not registration.token == state.worker_token:
             await ws.send_bytes(
                 proto2bytes(
@@ -82,13 +83,23 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
             try:
                 data = bytes2proto(data)
             except ValueError:
-                # 错误的数据包
                 continue
             if type(data) == worker_pb2.NodeStatus:
                 await state.worker_manager.handle_heartbeat(ws, data)
             elif type(data) == common_pb2.TaskResult:
-                await state.task_manager.put_result(data)
+                await state.task_manager.put_result(data, state.worker_manager)
             elif type(data) == worker_pb2.UnregisterNode:
+                # 清理worker上的所有任务
+                worker = state.worker_manager.get_worker(data.node_id)
+                if worker:
+                    for task_id in worker.current_tasks[:]:
+                        task = state.task_manager.get_task(task_id)
+                        if task and task.status in ["assigned", "running"]:
+                            task.mark_retrying()
+                            ws = state.task_manager.task_websockets.get(task_id)  # type: ignore
+                            if ws:
+                                state.task_manager.add_task(task, ws)
+                # 移除worker
                 for w in state.worker_manager.workers:
                     if w.node_id == data.node_id:
                         state.worker_manager.workers.remove(w)
@@ -123,22 +134,35 @@ async def check_heartbeat(state: AppState):
         pass
 
 
-# 任务分发
-async def destribute_tasks(state: AppState):
+async def distribute_tasks(state: AppState):
     logger.info("Task distribution started")
     while True:
         task: Task = await state.task_manager.get()
-        worker = await state.worker_manager.get()
-        logger.info(f"Distribute task {task.task_id} to {worker.registration.name}")
-        await worker.websocket.send_bytes(
-            proto2bytes(
-                TaskProto(
-                    task_id=task.task_id,
-                    wasm_module=task.wasm_module,
-                    args=orjson.dumps(task.args).decode("utf-8"),
-                    entry=task.entry,  # type: ignore
-                    priority=task.priority,
-                ),
-                Envelope.MessageType.TASK,
+        worker = await state.worker_manager.get_available_worker()
+        if worker:
+            logger.info(
+                f"Distributing task {task.task_id} to {worker.registration.name}"
             )
-        )
+
+            # 分配任务给worker
+            await state.task_manager.assign_task_to_worker(task, worker)
+
+            # 发送任务到worker
+            await worker.websocket.send_bytes(
+                proto2bytes(
+                    TaskProto(
+                        task_id=task.task_id,
+                        wasm_module=task.wasm_module,
+                        args=orjson.dumps(task.args).decode("utf-8"),
+                        entry=task.entry,
+                        priority=task.priority,
+                    ),
+                    Envelope.MessageType.TASK,
+                )
+            )
+        else:
+            logger.warning(f"No available worker for task {task.task_id}, re-queueing")
+            # 如果没有可用worker，重新加入队列
+            ws = state.task_manager.task_websockets.get(task.task_id)
+            if ws:
+                state.task_manager.add_task(task, ws)
