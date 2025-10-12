@@ -76,6 +76,7 @@ class WorkerManager:
         worker = Worker(ws, registration)
         logger.info(f"Registering worker: {registration.name}")
         self.workers.append(worker)
+        self.condition.notify_all()
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
 
     def get_worker(self, node_id: str) -> Optional[Worker]:
@@ -84,7 +85,7 @@ class WorkerManager:
                 return worker
         return None
 
-    async def get_available_worker(self) -> Optional[Worker]:
+    async def get_available_worker(self) -> Worker:
         """获取可用的worker，考虑当前负载"""
         async with self.condition:
             while True:

@@ -123,6 +123,7 @@ class Worker:
             time=result.time,
             succeeded=result.succeeded,
         )
+        self.num_running -= 1
 
         await self.ws.send(proto2bytes(proto))
 
@@ -153,6 +154,9 @@ class Worker:
                     await self.handle_task(proto)
 
         except (ConnectionError, asyncio.CancelledError) as e:
+            import traceback
+
+            traceback.print_exc()
             logger.error(f"Connection error: {e}")
         except ConnectionClosedError:
             logger.warning("Connection closed")

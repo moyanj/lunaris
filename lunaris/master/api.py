@@ -31,7 +31,6 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
             try:
                 data = bytes2proto(await ws.receive_bytes())
                 if type(data) is CreateTask:
-                    logger.info(f"Received CreateTask request")
 
                     task = Task(
                         wasm_module=data.wasm_module,

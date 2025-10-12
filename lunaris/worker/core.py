@@ -89,25 +89,21 @@ class Runner:
         self._listener_task = asyncio.create_task(self._listen_results())
 
     async def _listen_results(self):
-        """
-        持续监听multiprocessing.Queue中的结果，并在收到时调用报告回调。
-        """
+        """持续监听multiprocessing.Queue中的结果"""
         logger.info("Start the Runner result listening task.")
         while self._running:
             try:
-                # 尝试从队列中获取结果，非阻塞地检查
+                # 使用非阻塞方式检查队列
                 if not self.result_queue.empty():
                     result, task_id = self.result_queue.get()
                     logger.info(f"Received result from subprocess: {task_id}")
-                    # 在这里调用异步报告回调函数
                     await self.report_callback(result, task_id)
                 else:
-                    # 如果队列为空，短暂休眠，避免忙等待
-                    await asyncio.sleep(0.01)
+                    # 队列为空时短暂休眠，避免忙等待
+                    await asyncio.sleep(0.1)
             except Exception as e:
-                import traceback
-
-                traceback.print_exc()
+                logger.error(f"Error in result listener: {e}")
+                await asyncio.sleep(1)  # 错误时等待更长时间
 
     def submit(self, task: Task) -> None:
         """

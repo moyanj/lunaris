@@ -139,31 +139,23 @@ async def distribute_tasks(state: AppState):
     while True:
         task: Task = await state.task_manager.get()
         worker = await state.worker_manager.get_available_worker()
-        if worker:
-            logger.info(
-                f"Distributing task {task.task_id} to {worker.registration.name}"
-            )
 
-            # 分配任务给worker
-            await state.task_manager.assign_task_to_worker(task, worker)
+        logger.info(f"Distributing task {task.task_id} to {worker.registration.name}")
 
-            # 发送任务到worker
-            await worker.websocket.send_bytes(
-                proto2bytes(
-                    TaskProto(
-                        task_id=task.task_id,
-                        wasm_module=task.wasm_module,
-                        args=orjson.dumps(task.args).decode("utf-8"),
-                        entry=task.entry,
-                        priority=task.priority,
-                        wasi_env=task.wasi_env,
-                    ),
-                    Envelope.MessageType.TASK,
-                )
+        # 分配任务给worker
+        await state.task_manager.assign_task_to_worker(task, worker)
+
+        # 发送任务到worker
+        await worker.websocket.send_bytes(
+            proto2bytes(
+                TaskProto(
+                    task_id=task.task_id,
+                    wasm_module=task.wasm_module,
+                    args=orjson.dumps(task.args).decode("utf-8"),
+                    entry=task.entry,
+                    priority=task.priority,
+                    wasi_env=task.wasi_env,
+                ),
+                Envelope.MessageType.TASK,
             )
-        else:
-            logger.warning(f"No available worker for task {task.task_id}, re-queueing")
-            # 如果没有可用worker，重新加入队列
-            ws = state.task_manager.task_websockets.get(task.task_id)
-            if ws:
-                state.task_manager.add_task(task, ws)
+        )

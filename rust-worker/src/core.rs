@@ -181,7 +181,7 @@ impl Worker {
         self.register(&mut write).await?;
 
         // 创建Runner
-        let (result_tx, mut result_rx) = mpsc::channel(1024);
+        let (result_tx, mut result_rx) = mpsc::channel(100);
         let runner = Runner::new_with_channel(self.max_concurrency, result_tx);
         self.runner = Some(runner);
 
