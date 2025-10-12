@@ -1,23 +1,27 @@
+from proto import common_pb2 as _common_pb2
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
+from collections.abc import Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Task(_message.Message):
-    __slots__ = ("task_id", "wasm_module", "args", "entry", "priority")
+    __slots__ = ("task_id", "wasm_module", "args", "entry", "priority", "wasi_env")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     WASM_MODULE_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
     ENTRY_FIELD_NUMBER: _ClassVar[int]
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
+    WASI_ENV_FIELD_NUMBER: _ClassVar[int]
     task_id: str
     wasm_module: bytes
     args: str
     entry: str
     priority: int
-    def __init__(self, task_id: _Optional[str] = ..., wasm_module: _Optional[bytes] = ..., args: _Optional[str] = ..., entry: _Optional[str] = ..., priority: _Optional[int] = ...) -> None: ...
+    wasi_env: _common_pb2.WasiEnv
+    def __init__(self, task_id: _Optional[str] = ..., wasm_module: _Optional[bytes] = ..., args: _Optional[str] = ..., entry: _Optional[str] = ..., priority: _Optional[int] = ..., wasi_env: _Optional[_Union[_common_pb2.WasiEnv, _Mapping]] = ...) -> None: ...
 
 class ControlCommand(_message.Message):
     __slots__ = ("type", "data")

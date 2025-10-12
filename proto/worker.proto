@@ -2,13 +2,16 @@ syntax = "proto3";
 
 package lunaris.worker;
 
+import "proto/common.proto";
+
 // ========== 核心任务格式 ==========
 message Task {
   string task_id = 1;
-  bytes wasm_module = 2; // WASM模块
-  string args = 3;       // 输入参数（JSON格式）
-  string entry = 4;      // 函数名
-  uint32 priority = 5;   // 优先级
+  bytes wasm_module = 2;       // WASM模块
+  string args = 3;             // 输入参数（JSON格式）
+  string entry = 4;            // 函数名
+  uint32 priority = 5;         // 优先级
+  common.WasiEnv wasi_env = 6; // WASI环境设置
 }
 
 // ========== 精简控制命令 ==========

@@ -22,29 +22,30 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from proto import common_pb2 as proto_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/worker.proto\x12\x0elunaris.worker\"[\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bwasm_module\x18\x02 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\r\n\x05\x65ntry\x18\x04 \x01(\t\x12\x10\n\x08priority\x18\x05 \x01(\r\"\x84\x01\n\x0e\x43ontrolCommand\x12\x38\n\x04type\x18\x01 \x01(\x0e\x32*.lunaris.worker.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x8a\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.lunaris.worker.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\r\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"k\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04\x61rch\x18\x02 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\r\x12\x13\n\x0bmemory_size\x18\x04 \x01(\x04\x12\r\n\x05token\x18\x05 \x01(\t\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"!\n\x0eUnregisterNode\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/worker.proto\x12\x0elunaris.worker\x1a\x12proto/common.proto\"\x86\x01\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bwasm_module\x18\x02 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\r\n\x05\x65ntry\x18\x04 \x01(\t\x12\x10\n\x08priority\x18\x05 \x01(\r\x12)\n\x08wasi_env\x18\x06 \x01(\x0b\x32\x17.lunaris.common.WasiEnv\"\x84\x01\n\x0e\x43ontrolCommand\x12\x38\n\x04type\x18\x01 \x01(\x0e\x32*.lunaris.worker.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x8a\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.lunaris.worker.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\r\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"k\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04\x61rch\x18\x02 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\r\x12\x13\n\x0bmemory_size\x18\x04 \x01(\x04\x12\r\n\x05token\x18\x05 \x01(\t\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"!\n\x0eUnregisterNode\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'proto.worker_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_TASK']._serialized_start=38
-  _globals['_TASK']._serialized_end=129
-  _globals['_CONTROLCOMMAND']._serialized_start=132
-  _globals['_CONTROLCOMMAND']._serialized_end=264
-  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_start=222
-  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_end=264
-  _globals['_NODESTATUS']._serialized_start=267
-  _globals['_NODESTATUS']._serialized_end=405
-  _globals['_NODESTATUS_NODESTATE']._serialized_start=374
-  _globals['_NODESTATUS_NODESTATE']._serialized_end=405
-  _globals['_NODEREGISTRATION']._serialized_start=407
-  _globals['_NODEREGISTRATION']._serialized_end=514
-  _globals['_NODEREGISTRATIONREPLY']._serialized_start=516
-  _globals['_NODEREGISTRATIONREPLY']._serialized_end=556
-  _globals['_UNREGISTERNODE']._serialized_start=558
-  _globals['_UNREGISTERNODE']._serialized_end=591
+  _globals['_TASK']._serialized_start=59
+  _globals['_TASK']._serialized_end=193
+  _globals['_CONTROLCOMMAND']._serialized_start=196
+  _globals['_CONTROLCOMMAND']._serialized_end=328
+  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_start=286
+  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_end=328
+  _globals['_NODESTATUS']._serialized_start=331
+  _globals['_NODESTATUS']._serialized_end=469
+  _globals['_NODESTATUS_NODESTATE']._serialized_start=438
+  _globals['_NODESTATUS_NODESTATE']._serialized_end=469
+  _globals['_NODEREGISTRATION']._serialized_start=471
+  _globals['_NODEREGISTRATION']._serialized_end=578
+  _globals['_NODEREGISTRATIONREPLY']._serialized_start=580
+  _globals['_NODEREGISTRATIONREPLY']._serialized_end=620
+  _globals['_UNREGISTERNODE']._serialized_start=622
+  _globals['_UNREGISTERNODE']._serialized_end=655
 # @@protoc_insertion_point(module_scope)

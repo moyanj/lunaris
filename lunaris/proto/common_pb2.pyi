@@ -1,6 +1,8 @@
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
+from collections.abc import Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -52,3 +54,25 @@ class TaskResult(_message.Message):
     time: float
     succeeded: bool
     def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ...) -> None: ...
+
+class WasiEnv(_message.Message):
+    __slots__ = ("env", "args")
+    class EnvEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class ArgsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    ENV_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    env: _containers.ScalarMap[str, str]
+    args: _containers.ScalarMap[str, str]
+    def __init__(self, env: _Optional[_Mapping[str, str]] = ..., args: _Optional[_Mapping[str, str]] = ...) -> None: ...

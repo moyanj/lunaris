@@ -2,11 +2,14 @@ syntax = "proto3";
 
 package lunaris.client;
 
+import "proto/common.proto";
+
 message CreateTask {
   bytes wasm_module = 1;
   string args = 2;
-  string entry = 3;   // WASM模块入口点
-  uint32 priority = 4; // 优先级
+  string entry = 3;            // WASM模块入口点
+  uint32 priority = 4;         // 优先级
+  common.WasiEnv wasi_env = 6; // WASI环境设置
 }
 
 message TaskCreated { string task_id = 1; }
