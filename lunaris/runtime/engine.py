@@ -27,7 +27,8 @@ class WasmSandbox:
         module_code: bytes,
         *args,
         entry: str = "main",
-        name="<script>",
+        env: dict[str, str] = {},
+        wasi_args: dict[str, str] = {},
     ) -> WasmResult:
         """
         执行 Wasm 模块，并返回结果。
@@ -41,6 +42,10 @@ class WasmSandbox:
 
         store = Store(self.engine)
         wasi = WasiConfig()
+
+        wasi.env = env
+        wasi.argv = wasi_args
+
         fd, stdout_temp = tempfile.mkstemp()
         os.close(fd)
         wasi.stdout_file = stdout_temp

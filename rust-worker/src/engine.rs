@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use serde_json::{Value, from_str, json};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Semaphore, mpsc};
 use wasmtime::*;
 use wasmtime_wasi::{WasiCtx, p2::pipe::MemoryOutputPipe};
@@ -64,28 +64,36 @@ impl Runner {
         let args_json = task.args;
         let entry = task.entry;
         let task_id = task.task_id.clone();
+        let mut wasi_env: HashMap<String, String> = HashMap::new();
+        let mut wasi_args: Vec<String> = vec![];
+        if let Some(wasi_env_cfg) = task.wasi_env {
+            wasi_env = wasi_env_cfg.env;
+            wasi_args = wasi_env_cfg.args;
+        }
         let engine = self.wasm_engine.clone();
         let tx = self.result_tx.clone();
         let _permit = self.concurrency.clone().acquire_owned().await?; // 获取信号量许可
 
         // 提交到阻塞线程池执行
-        tokio::task::spawn_blocking(move || match run_wasm(&engine, &code, &args_json, &entry) {
-            Ok(result) => {
-                // 使用当前运行时发送结果
-                if let Err(e) = tx.blocking_send((result, task_id)) {
-                    eprintln!("Failed to send result: {}", e);
+        tokio::task::spawn_blocking(move || {
+            match run_wasm(&engine, &code, &args_json, &entry, &wasi_env, &wasi_args) {
+                Ok(result) => {
+                    // 使用当前运行时发送结果
+                    if let Err(e) = tx.blocking_send((result, task_id)) {
+                        eprintln!("Failed to send result: {}", e);
+                    }
                 }
-            }
-            Err(e) => {
-                let err_result = WasmResult {
-                    result: String::new(),
-                    stdout: vec![],
-                    stderr: e.to_string().as_bytes().to_vec(),
-                    time: 0.0,
-                    succeeded: false,
-                };
-                if let Err(e) = tx.blocking_send((err_result, task_id)) {
-                    eprintln!("Failed to send error result: {}", e);
+                Err(e) => {
+                    let err_result = WasmResult {
+                        result: String::new(),
+                        stdout: vec![],
+                        stderr: e.to_string().as_bytes().to_vec(),
+                        time: 0.0,
+                        succeeded: false,
+                    };
+                    if let Err(e) = tx.blocking_send((err_result, task_id)) {
+                        eprintln!("Failed to send error result: {}", e);
+                    }
                 }
             }
         });
@@ -94,7 +102,14 @@ impl Runner {
     }
 }
 
-fn run_wasm(wasm_engine: &Engine, code: &[u8], args_json: &str, entry: &str) -> Result<WasmResult> {
+fn run_wasm(
+    wasm_engine: &Engine,
+    code: &[u8],
+    args_json: &str,
+    entry: &str,
+    env: &HashMap<String, String>,
+    args: &Vec<String>,
+) -> Result<WasmResult> {
     let module = Module::new(wasm_engine, code)?;
     let mut linker = Linker::new(wasm_engine);
     wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s| s)?;
@@ -105,7 +120,12 @@ fn run_wasm(wasm_engine: &Engine, code: &[u8], args_json: &str, entry: &str) -> 
     let wasi = WasiCtx::builder()
         .stdout(stdout.clone())
         .stderr(stderr.clone())
-        .inherit_args()
+        .envs(
+            &env.iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect::<Vec<_>>(),
+        )
+        .args(args)
         .build_p1();
     let mut store = Store::new(wasm_engine, wasi);
 

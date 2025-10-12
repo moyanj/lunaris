@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package lunaris.client;
 
-import "proto/common.proto";
+import "common.proto";
 
 message CreateTask {
   bytes wasm_module = 1;

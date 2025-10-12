@@ -156,6 +156,7 @@ async def distribute_tasks(state: AppState):
                         args=orjson.dumps(task.args).decode("utf-8"),
                         entry=task.entry,
                         priority=task.priority,
+                        wasi_env=task.wasi_env,
                     ),
                     Envelope.MessageType.TASK,
                 )

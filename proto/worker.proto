@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package lunaris.worker;
 
-import "proto/common.proto";
+import "common.proto";
 
 // ========== 核心任务格式 ==========
 message Task {

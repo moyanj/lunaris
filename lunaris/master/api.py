@@ -38,6 +38,10 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                         args=orjson.loads(data.args),
                         entry=data.entry,
                         priority=data.priority,
+                        wasi_env={
+                            "env": dict(data.wasi_env.env),
+                            "args": list(data.wasi_env.args),
+                        },
                     )
 
                     logger.info(f"Created task with ID: {task.task_id}")

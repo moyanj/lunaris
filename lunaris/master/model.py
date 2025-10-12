@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 from datetime import datetime
 from lunaris.master import id_gen
+from lunaris.proto import common_pb2
 
 
 class TaskStatus(str, Enum):
@@ -20,6 +21,7 @@ class Task(BaseModel):
     task_id: str = Field(default_factory=id_gen.get_id)
     args: list = Field(default_factory=list)
     priority: int = 0
+    wasi_env: dict[str, Union[dict[str, str], list[str]]] = Field(default_factory=dict)
     status: TaskStatus = TaskStatus.PENDING
     assigned_worker: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)

@@ -1,10 +1,17 @@
 import asyncio
+from dataclasses import dataclass, field
 import json
 from typing import Callable, Optional, Dict, Any, List, Union
 from websockets import connect, ConnectionClosed
 from lunaris.proto.client_pb2 import CreateTask, UnsubscribeTask, TaskCreated
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.utils import proto2bytes, bytes2proto
+
+
+@dataclass
+class WasiEnv:
+    env: Dict[str, str] = field(default_factory=dict)
+    args: Dict[str, str] = field(default_factory=dict)
 
 
 class LunarisClient:
@@ -40,6 +47,7 @@ class LunarisClient:
         args: Optional[List[Any]] = None,
         entry: str = "main",
         priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
         callback: Optional[Callable] = None,
     ) -> str:
         """
@@ -66,6 +74,7 @@ class LunarisClient:
             args=json.dumps(args or []),
             entry=entry,
             priority=priority,
+            wasi_env=wasi_env.__dict__ if wasi_env else {},
         )
 
         # 创建未来对象来等待任务创建响应

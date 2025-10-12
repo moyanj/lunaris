@@ -13,6 +13,8 @@ def _execute_task(
     code: bytes,
     args: list,
     entry: str,
+    env: dict[str, str],
+    wasi_args: dict[str, str],
     task_id: str,
     result_queue: multiprocessing.Queue,
 ):
@@ -33,6 +35,8 @@ def _execute_task(
             code,
             *args,
             entry=entry,
+            env=env,
+            wasi_args=wasi_args,
         )
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id))
@@ -123,6 +127,8 @@ class Runner:
             task.wasm_module,
             args,
             task.entry,
+            task.wasi_env.env,  # type: ignore
+            task.wasi_env.args,  # type: ignore
             task.task_id,
             self.result_queue,  # type: ignore 将共享队列传递给子进程
         )
