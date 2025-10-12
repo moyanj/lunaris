@@ -11,7 +11,7 @@ from lunaris.utils import proto2bytes, bytes2proto
 @dataclass
 class WasiEnv:
     env: Dict[str, str] = field(default_factory=dict)
-    args: Dict[str, str] = field(default_factory=dict)
+    args: List[str] = field(default_factory=list)
 
 
 class LunarisClient:

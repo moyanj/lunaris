@@ -162,7 +162,6 @@ fn run_wasm(
             }
         })
         .collect();
-
     let wasm_args = wasm_args?;
 
     let func = instance
