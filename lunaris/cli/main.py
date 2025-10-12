@@ -12,7 +12,7 @@ except ImportError:
     pass
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description="Lunaris Distributed WASM Executor")
     subparsers = parser.add_subparsers(dest="role", help="Run as master or worker")
 
@@ -37,32 +37,23 @@ def main():
 
     try:
         if args.role == "master":
-            run_master(args)
+            await run_master(args)
         elif args.role == "worker":
-            run_worker(args)
+            await run_worker(args)
+        else:
+            parser.print_help()
     except KeyboardInterrupt:
         sys.exit(0)
     except Exception as e:
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
-    if args.role == "master":
-        uvicorn.run(master_app, host=args.host, port=args.port)
-    elif args.role == "worker":
-        worker = Worker(
-            master_uri=args.master,
-            token=args.token,
-            name=args.name,
-            max_concurrency=args.concurrency,
-        )
-        asyncio.run(worker.run())
-    else:
-        parser.print_help()
 
-
-def run_master(args):
+async def run_master(args):  # Changed to async function
     """运行Master节点"""
-
-    uvicorn.run(
+    config = uvicorn.Config(
         master_app,
         host=args.host,
         port=args.port,
@@ -70,20 +61,35 @@ def run_master(args):
         log_config=None,
         log_level="error",
     )
+    server = uvicorn.Server(config)
+    try:
+        await server.serve()  # Use serve() instead of run()
+    except KeyboardInterrupt:
+        pass
+    except asyncio.CancelledError:
+        pass
 
 
-def run_worker(args):
+async def run_worker(args):
     """运行Worker节点"""
 
     worker = Worker(
-        master_uri=args.master_uri,
+        master_uri=args.master,
         token=args.token,
         name=args.name,
         max_concurrency=args.concurrency,
     )
 
-    asyncio.run(worker.run())
+    try:
+        await worker.run()
+    except:
+        pass
+    finally:
+        await worker.shutdown()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        sys.exit(0)

@@ -158,7 +158,6 @@ class Worker:
         except (ConnectionError, asyncio.CancelledError) as e:
             import traceback
 
-            traceback.print_exc()
             logger.error(f"Connection error: {e}")
         except ConnectionClosedError:
             logger.warning("Connection closed")
