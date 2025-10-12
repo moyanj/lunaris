@@ -153,7 +153,7 @@ fn run_wasm(wasm_engine: &Engine, code: &[u8], args_json: &str, entry: &str) -> 
 
     let start = std::time::Instant::now();
     func.call(&mut store, &wasm_args, &mut results)?;
-    let time = start.elapsed().as_secs_f64();
+    let time = start.elapsed().as_secs_f64() * 1000.0;
 
     // Convert result to string
     let result_str = serde_json::to_string(&wasm_results_to_json(&results))?;
