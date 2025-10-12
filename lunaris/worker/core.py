@@ -123,8 +123,8 @@ class Runner:
             task.wasm_module,
             args,
             task.entry,
-            task.wasi_env.env,  # type: ignore
-            task.wasi_env.args,  # type: ignore
+            dict(task.wasi_env.env),  # type: ignore
+            list(task.wasi_env.args),  # type: ignore
             task.task_id,
             self.result_queue,  # type: ignore 将共享队列传递给子进程
         )

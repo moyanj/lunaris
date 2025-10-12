@@ -76,7 +76,6 @@ class WorkerManager:
         worker = Worker(ws, registration)
         logger.info(f"Registering worker: {registration.name}")
         self.workers.append(worker)
-        self.condition.notify_all()
         await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
 
     def get_worker(self, node_id: str) -> Optional[Worker]:
@@ -187,7 +186,6 @@ class TaskManager:
         task.assign_to_worker(worker.node_id)
         worker.add_task(task.task_id)
         self.running_tasks[task.task_id] = task
-        logger.info(f"Task {task.task_id} assigned to worker {worker.node_id}")
 
     async def put_result(
         self, result: TaskResult, worker_manager: WorkerManager

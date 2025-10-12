@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import os
-from lunaris.master.web_app import app as master_app
 from lunaris.worker.main import Worker
 import uvicorn
 import sys
@@ -68,6 +67,7 @@ def run_master(args):
         port=args.port,
         workers=1,
         log_config=None,
+        log_level="error",
     )
 
 

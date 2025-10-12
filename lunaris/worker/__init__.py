@@ -10,7 +10,7 @@ console_format = (
 )
 logger.add(
     sys.stdout,
-    level="INFO",  # 控制台只显示INFO及以上级别
+    level="DEBUG",  # 控制台只显示INFO及以上级别
     format=console_format,
     colorize=True,
     enqueue=True,
