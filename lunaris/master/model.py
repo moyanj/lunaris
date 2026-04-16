@@ -4,6 +4,7 @@ from typing import Optional, Union
 from datetime import datetime
 from lunaris.master import id_gen
 from lunaris.proto import common_pb2
+from lunaris.runtime import ExecutionLimits
 
 
 class TaskStatus(str, Enum):
@@ -22,6 +23,7 @@ class Task(BaseModel):
     args: list = Field(default_factory=list)
     priority: int = 0
     wasi_env: dict[str, Union[dict[str, str], list[str]]] = Field(default_factory=dict)
+    execution_limits: dict[str, int] = Field(default_factory=dict)
     status: TaskStatus = TaskStatus.PENDING
     assigned_worker: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
@@ -37,6 +39,7 @@ class Task(BaseModel):
             "task_id": self.task_id,
             "args": self.args,
             "priority": self.priority,
+            "execution_limits": self.execution_limits,
             "status": self.status,
             "assigned_worker": self.assigned_worker,
             "created_at": self.created_at.isoformat() if self.created_at else None,

@@ -14,6 +14,7 @@ message Envelope {
     CREATE_TASK = 7;
     UNSUBSCRIBE_TASK = 8;
     TASK_CREATED = 9;
+    TASK_CREATE_FAILED = 10;
   }
 
   MessageType type = 1;
@@ -33,4 +34,10 @@ message TaskResult {
 message WasiEnv {
   map<string, string> env = 1; // 环境变量
   repeated string args = 2;    // 参数
+}
+
+message ExecutionLimits {
+  uint64 max_fuel = 1;         // 最大 fuel，0 表示未设置
+  uint64 max_memory_bytes = 2; // 最大线性内存，0 表示未设置
+  uint64 max_module_bytes = 3; // 最大 Wasm 模块大小，0 表示未设置
 }

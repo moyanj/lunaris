@@ -84,6 +84,16 @@ class WorkerManager:
                 return worker
         return None
 
+    def get_worker_by_ws(self, ws: WebSocket) -> Optional[Worker]:
+        for worker in self.workers:
+            if worker.websocket == ws:
+                return worker
+        return None
+
+    def remove_worker(self, worker: Worker) -> None:
+        if worker in self.workers:
+            self.workers.remove(worker)
+
     async def get_available_worker(self) -> Worker:
         """获取可用的worker，考虑当前负载"""
         async with self.condition:
@@ -188,7 +198,7 @@ class TaskManager:
         self.running_tasks[task.task_id] = task
 
     async def put_result(
-        self, result: TaskResult, worker_manager: WorkerManager
+        self, result: TaskResult, worker_manager: WorkerManager, source_worker: Worker
     ) -> None:
         """处理任务执行结果"""
         logger.debug(f"Task Result: {result}")
@@ -196,6 +206,14 @@ class TaskManager:
         task = self.running_tasks.get(result.task_id)
         if not task:
             logger.warning(f"Received result for unknown task: {result.task_id}")
+            return
+
+        if task.assigned_worker != source_worker.node_id:
+            logger.warning(
+                "Rejected task result for task {} from unexpected worker {}",
+                result.task_id,
+                source_worker.node_id,
+            )
             return
 
         # 更新worker状态

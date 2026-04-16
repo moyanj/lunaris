@@ -3,9 +3,9 @@ use serde_json::{Value, from_str, json};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Semaphore, mpsc};
 use wasmtime::*;
-use wasmtime_wasi::{WasiCtx, p2::pipe::MemoryOutputPipe};
+use wasmtime_wasi::{WasiCtx, p1::WasiP1Ctx, p2::pipe::MemoryOutputPipe};
 
-use crate::proto::worker;
+use crate::proto::{common::ExecutionLimits, worker};
 
 pub struct WasmResult {
     pub result: String,
@@ -19,6 +19,8 @@ pub struct Runner {
     wasm_engine: Engine,
     result_tx: mpsc::Sender<(WasmResult, String)>,
     concurrency: Arc<Semaphore>, // 用信号量控制最大并发数
+    default_limits: ExecutionLimits,
+    max_limits: ExecutionLimits,
 }
 
 impl Runner {
@@ -38,24 +40,36 @@ impl Runner {
                 callback(result, task_id);
             }
         });
+        let mut config = Config::new();
+        config.consume_fuel(true);
+        let engine = Engine::new(&config).expect("failed to create wasmtime engine");
 
         Self {
-            wasm_engine: Engine::default(),
+            wasm_engine: engine,
             result_tx: tx,
             concurrency: semaphore,
+            default_limits: ExecutionLimits::default(),
+            max_limits: ExecutionLimits::default(),
         }
     }
 
     pub fn new_with_channel(
         max_workers: usize,
         result_tx: mpsc::Sender<(WasmResult, String)>,
+        default_limits: ExecutionLimits,
+        max_limits: ExecutionLimits,
     ) -> Self {
         let semaphore = Arc::new(Semaphore::new(max_workers));
+        let mut config = Config::new();
+        config.consume_fuel(true);
+        let engine = Engine::new(&config).expect("failed to create wasmtime engine");
 
         Self {
-            wasm_engine: Engine::default(),
+            wasm_engine: engine,
             result_tx,
             concurrency: semaphore,
+            default_limits,
+            max_limits,
         }
     }
 
@@ -66,6 +80,11 @@ impl Runner {
         let task_id = task.task_id.clone();
         let mut wasi_env: HashMap<String, String> = HashMap::new();
         let mut wasi_args: Vec<String> = vec![];
+        let limits = clamp_limits(
+            task.execution_limits.as_ref(),
+            &self.default_limits,
+            &self.max_limits,
+        );
         if let Some(wasi_env_cfg) = task.wasi_env {
             wasi_env = wasi_env_cfg.env;
             wasi_args = wasi_env_cfg.args;
@@ -76,7 +95,9 @@ impl Runner {
 
         // 提交到阻塞线程池执行
         tokio::task::spawn_blocking(move || {
-            match run_wasm(&engine, &code, &args_json, &entry, &wasi_env, &wasi_args) {
+            match run_wasm(
+                &engine, &code, &args_json, &entry, &wasi_env, &wasi_args, &limits,
+            ) {
                 Ok(result) => {
                     // 使用当前运行时发送结果
                     if let Err(e) = tx.blocking_send((result, task_id)) {
@@ -109,10 +130,19 @@ fn run_wasm(
     entry: &str,
     env: &HashMap<String, String>,
     args: &Vec<String>,
+    limits: &ExecutionLimits,
 ) -> Result<WasmResult> {
+    if limits.max_module_bytes > 0 && code.len() as u64 > limits.max_module_bytes {
+        return Err(anyhow!(
+            "Wasm module too large: {} > {}",
+            code.len(),
+            limits.max_module_bytes
+        ));
+    }
+
     let module = Module::new(wasm_engine, code)?;
     let mut linker = Linker::new(wasm_engine);
-    wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s| s)?;
+    wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s: &mut HostState| &mut s.wasi)?;
 
     let stdout = MemoryOutputPipe::new(512);
     let stderr = MemoryOutputPipe::new(512);
@@ -127,7 +157,17 @@ fn run_wasm(
         )
         .args(args)
         .build_p1();
-    let mut store = Store::new(wasm_engine, wasi);
+    let mut store = Store::new(
+        wasm_engine,
+        HostState {
+            wasi,
+            limits: build_store_limits(limits),
+        },
+    );
+    store.limiter(|state| &mut state.limits);
+    if limits.max_fuel > 0 {
+        store.set_fuel(limits.max_fuel)?;
+    }
 
     let instance = linker.instantiate(&mut store, &module)?;
 
@@ -183,6 +223,50 @@ fn run_wasm(
         time,
         succeeded: true,
     })
+}
+
+struct HostState {
+    wasi: WasiP1Ctx,
+    limits: StoreLimits,
+}
+
+fn build_store_limits(limits: &ExecutionLimits) -> StoreLimits {
+    let builder = if limits.max_memory_bytes > 0 {
+        StoreLimitsBuilder::new().memory_size(limits.max_memory_bytes as usize)
+    } else {
+        StoreLimitsBuilder::new()
+    };
+    builder.build()
+}
+
+fn clamp_limits(
+    requested: Option<&ExecutionLimits>,
+    defaults: &ExecutionLimits,
+    maximums: &ExecutionLimits,
+) -> ExecutionLimits {
+    let requested = requested.cloned().unwrap_or_default();
+    ExecutionLimits {
+        max_fuel: resolve_limit(requested.max_fuel, defaults.max_fuel, maximums.max_fuel),
+        max_memory_bytes: resolve_limit(
+            requested.max_memory_bytes,
+            defaults.max_memory_bytes,
+            maximums.max_memory_bytes,
+        ),
+        max_module_bytes: resolve_limit(
+            requested.max_module_bytes,
+            defaults.max_module_bytes,
+            maximums.max_module_bytes,
+        ),
+    }
+}
+
+fn resolve_limit(requested: u64, default: u64, maximum: u64) -> u64 {
+    let effective = if requested > 0 { requested } else { default };
+    if maximum > 0 && (effective == 0 || effective > maximum) {
+        maximum
+    } else {
+        effective
+    }
 }
 
 fn wasm_results_to_json(results: &[Val]) -> Value {

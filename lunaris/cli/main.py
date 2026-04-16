@@ -3,6 +3,7 @@ import asyncio
 import os
 from lunaris.worker.main import Worker
 from lunaris.master.web_app import app as master_app
+from lunaris.runtime import ExecutionLimits
 import uvicorn
 import sys
 
@@ -20,6 +21,12 @@ async def main():
     master_parser = subparsers.add_parser("master", help="Run as master node")
     master_parser.add_argument("--host", default="127.0.0.1", help="Host to bind")
     master_parser.add_argument("--port", type=int, default=8000, help="Port to bind")
+    master_parser.add_argument("--default-max-fuel", type=int, default=0)
+    master_parser.add_argument("--default-max-memory-bytes", type=int, default=0)
+    master_parser.add_argument("--default-max-module-bytes", type=int, default=0)
+    master_parser.add_argument("--max-fuel", type=int, default=0)
+    master_parser.add_argument("--max-memory-bytes", type=int, default=0)
+    master_parser.add_argument("--max-module-bytes", type=int, default=0)
 
     # Worker 参数
     worker_parser = subparsers.add_parser("worker", help="Run as worker node")
@@ -32,6 +39,12 @@ async def main():
         type=str,
         default=os.environ.get("WORKER_TOKEN", ""),
     )
+    worker_parser.add_argument("--default-max-fuel", type=int, default=0)
+    worker_parser.add_argument("--default-max-memory-bytes", type=int, default=0)
+    worker_parser.add_argument("--default-max-module-bytes", type=int, default=0)
+    worker_parser.add_argument("--max-fuel", type=int, default=0)
+    worker_parser.add_argument("--max-memory-bytes", type=int, default=0)
+    worker_parser.add_argument("--max-module-bytes", type=int, default=0)
 
     args = parser.parse_args()
 
@@ -53,6 +66,8 @@ async def main():
 
 async def run_master(args):  # Changed to async function
     """运行Master节点"""
+    master_app.state.default_execution_limits = _default_limits_from_args(args)
+    master_app.state.max_execution_limits = _max_limits_from_args(args)
     config = uvicorn.Config(
         master_app,
         host=args.host,
@@ -78,6 +93,8 @@ async def run_worker(args):
         token=args.token,
         name=args.name,
         max_concurrency=args.concurrency,
+        default_execution_limits=_default_limits_from_args(args),
+        max_execution_limits=_max_limits_from_args(args),
     )
 
     try:
@@ -86,6 +103,22 @@ async def run_worker(args):
         pass
     finally:
         await worker.shutdown()
+
+
+def _default_limits_from_args(args) -> ExecutionLimits:
+    return ExecutionLimits(
+        max_fuel=args.default_max_fuel,
+        max_memory_bytes=args.default_max_memory_bytes,
+        max_module_bytes=args.default_max_module_bytes,
+    )
+
+
+def _max_limits_from_args(args) -> ExecutionLimits:
+    return ExecutionLimits(
+        max_fuel=args.max_fuel,
+        max_memory_bytes=args.max_memory_bytes,
+        max_module_bytes=args.max_module_bytes,
+    )
 
 
 if __name__ == "__main__":

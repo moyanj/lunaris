@@ -1,4 +1,9 @@
-from lunaris.proto.client_pb2 import CreateTask, UnsubscribeTask, TaskCreated
+from lunaris.proto.client_pb2 import (
+    CreateTask,
+    TaskCreateFailed,
+    TaskCreated,
+    UnsubscribeTask,
+)
 from lunaris.proto.worker_pb2 import (
     Task,
     ControlCommand,
@@ -47,6 +52,7 @@ MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
     Envelope.MessageType.CREATE_TASK: CreateTask,
     Envelope.MessageType.UNSUBSCRIBE_TASK: UnsubscribeTask,
     Envelope.MessageType.TASK_CREATED: TaskCreated,
+    Envelope.MessageType.TASK_CREATE_FAILED: TaskCreateFailed,
 }
 
 # 类型反向映射表：将proto类映射到Envelope.MessageType

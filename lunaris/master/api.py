@@ -1,17 +1,36 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
+import secrets
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket
 from fastapi.websockets import WebSocketState
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
-from lunaris.proto.client_pb2 import CreateTask, TaskCreated
+from lunaris.proto.client_pb2 import CreateTask, TaskCreateFailed, TaskCreated
 from lunaris.utils import Rest, bytes2proto, proto2bytes
 from lunaris.master.model import TaskStatus
+from lunaris.runtime import ExecutionLimits
 import orjson
 
 app = APIRouter()
 
 
+def require_client_token(
+    state: AppState = Depends(get_app_state),
+    token: Optional[str] = Query(default=None),
+    x_client_token: Optional[str] = Header(default=None, alias="X-Client-Token"),
+) -> None:
+    provided_token = x_client_token or token
+    if not provided_token or not secrets.compare_digest(
+        provided_token, state.client_token
+    ):
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+
 @app.get("/worker")
-async def get_workers(state: AppState = Depends(get_app_state)):
+async def get_workers(
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     workers = state.worker_manager.workers
     return Rest(data={"count": len(workers), "workers": [w.to_dict() for w in workers]})
 
@@ -31,21 +50,41 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
             try:
                 data = bytes2proto(await ws.receive_bytes())
                 if type(data) is CreateTask:
+                    try:
+                        execution_limits = state.apply_execution_limits(
+                            ExecutionLimits.from_proto(data.execution_limits)
+                        )
+                        if (
+                            execution_limits.max_module_bytes > 0
+                            and len(data.wasm_module)
+                            > execution_limits.max_module_bytes
+                        ):
+                            raise ValueError(
+                                "Wasm module exceeds the configured size limit"
+                            )
 
-                    task = Task(
-                        wasm_module=data.wasm_module,
-                        args=orjson.loads(data.args),
-                        entry=data.entry,
-                        priority=data.priority,
-                        wasi_env={
-                            "env": dict(data.wasi_env.env),
-                            "args": list(data.wasi_env.args),
-                        },
-                    )
+                        task = Task(
+                            wasm_module=data.wasm_module,
+                            args=orjson.loads(data.args),
+                            entry=data.entry,
+                            priority=data.priority,
+                            wasi_env={
+                                "env": dict(data.wasi_env.env),
+                                "args": list(data.wasi_env.args),
+                            },
+                            execution_limits=execution_limits.to_dict(),
+                        )
 
-                    logger.info(f"Created task with ID: {task.task_id}")
-                    state.task_manager.add_task(task, ws)
-                    await ws.send_bytes(proto2bytes(TaskCreated(task_id=task.task_id)))
+                        logger.info(f"Created task with ID: {task.task_id}")
+                        state.task_manager.add_task(task, ws)
+                        await ws.send_bytes(
+                            proto2bytes(TaskCreated(task_id=task.task_id))
+                        )
+                    except Exception as exc:
+                        logger.error(f"Failed to create task: {str(exc)}")
+                        await ws.send_bytes(
+                            proto2bytes(TaskCreateFailed(error=str(exc)))
+                        )
 
                 elif type(data) is UnsubscribeTask:
                     for task in state.task_manager.all():
@@ -63,7 +102,11 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
 
 
 @app.get("/task/{task_id}")
-async def get_task_result(task_id: str, state: AppState = Depends(get_app_state)):
+async def get_task_result(
+    task_id: str,
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     for result in state.task_manager.result:
         if result.task_id == task_id:
             return Rest(
@@ -80,14 +123,21 @@ async def get_task_result(task_id: str, state: AppState = Depends(get_app_state)
 
 
 @app.get("/tasks")
-async def get_all_tasks(state: AppState = Depends(get_app_state)):
+async def get_all_tasks(
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     """获取所有任务的状态信息"""
     tasks = state.task_manager.all()
     return Rest(data={"count": len(tasks), "tasks": [task.to_dict() for task in tasks]})
 
 
 @app.get("/tasks/status/{status}")
-async def get_tasks_by_status(status: str, state: AppState = Depends(get_app_state)):
+async def get_tasks_by_status(
+    status: str,
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     """根据状态获取任务"""
     try:
         task_status = TaskStatus(status)
@@ -100,14 +150,22 @@ async def get_tasks_by_status(status: str, state: AppState = Depends(get_app_sta
 
 
 @app.get("/tasks/worker/{worker_id}")
-async def get_tasks_by_worker(worker_id: str, state: AppState = Depends(get_app_state)):
+async def get_tasks_by_worker(
+    worker_id: str,
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     """获取分配给指定worker的任务"""
     tasks = state.task_manager.get_tasks_by_worker(worker_id)
     return Rest(data={"count": len(tasks), "tasks": [task.to_dict() for task in tasks]})
 
 
 @app.get("/task/{task_id}/status")
-async def get_task_status(task_id: str, state: AppState = Depends(get_app_state)):
+async def get_task_status(
+    task_id: str,
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     """获取特定任务的详细状态"""
     task = state.task_manager.get_task(task_id)
     if task:
@@ -116,7 +174,10 @@ async def get_task_status(task_id: str, state: AppState = Depends(get_app_state)
 
 
 @app.get("/stats")
-async def get_system_stats(state: AppState = Depends(get_app_state)):
+async def get_system_stats(
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
     """获取系统统计信息"""
     tasks = state.task_manager.all()
     status_counts = {}

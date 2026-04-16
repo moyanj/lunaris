@@ -21,6 +21,8 @@ pub struct Worker {
     running: Arc<Mutex<bool>>,
     num_running: Arc<Mutex<usize>>,
     runner: Option<Runner>,
+    default_execution_limits: common::ExecutionLimits,
+    max_execution_limits: common::ExecutionLimits,
 }
 
 impl Worker {
@@ -29,6 +31,8 @@ impl Worker {
         token: &str,
         name: String,
         max_concurrency: usize,
+        default_execution_limits: common::ExecutionLimits,
+        max_execution_limits: common::ExecutionLimits,
     ) -> Result<Self> {
         Ok(Self {
             master_uri: master_uri.to_string(),
@@ -39,6 +43,8 @@ impl Worker {
             running: Arc::new(Mutex::new(false)),
             num_running: Arc::new(Mutex::new(0)),
             runner: None,
+            default_execution_limits,
+            max_execution_limits,
         })
     }
 
@@ -182,7 +188,12 @@ impl Worker {
 
         // 创建Runner
         let (result_tx, mut result_rx) = mpsc::channel(100);
-        let runner = Runner::new_with_channel(self.max_concurrency, result_tx);
+        let runner = Runner::new_with_channel(
+            self.max_concurrency,
+            result_tx,
+            self.default_execution_limits.clone(),
+            self.max_execution_limits.clone(),
+        );
         self.runner = Some(runner);
 
         // 等待注册响应

@@ -10,8 +10,11 @@ message CreateTask {
   string entry = 3;            // WASM模块入口点
   uint32 priority = 4;         // 优先级
   common.WasiEnv wasi_env = 6; // WASI环境设置
+  common.ExecutionLimits execution_limits = 7; // 执行资源限制
 }
 
 message TaskCreated { string task_id = 1; }
+
+message TaskCreateFailed { string error = 1; }
 
 message UnsubscribeTask { repeated string task_id = 1; }

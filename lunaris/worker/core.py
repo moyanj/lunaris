@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Optional, Callable, Any
 import psutil
 from lunaris.proto.worker_pb2 import Task
-from lunaris.runtime import WasmResult, WasmSandbox
+from lunaris.runtime import ExecutionLimits, WasmResult, WasmSandbox
 import orjson
 import multiprocessing
 from loguru import logger
@@ -15,6 +15,7 @@ def _execute_task(
     entry: str,
     env: dict[str, str],
     wasi_args: dict[str, str],
+    execution_limits: dict[str, int],
     task_id: str,
     result_queue: multiprocessing.Queue,
 ):
@@ -30,13 +31,15 @@ def _execute_task(
     """
     logger.info(f"Start executing task: {task_id}")
     try:
-        sandbox = WasmSandbox()
+        limits = ExecutionLimits.from_mapping(execution_limits)
+        sandbox = WasmSandbox(limits)
         result = sandbox.run(
             code,
             *args,
             entry=entry,
             env=env,
             wasi_args=wasi_args,
+            execution_limits=limits,
         )
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id))
@@ -59,7 +62,11 @@ def _execute_task(
 
 class Runner:
     def __init__(
-        self, max_workers: int, report_callback: Callable[[WasmResult, str], Any]
+        self,
+        max_workers: int,
+        report_callback: Callable[[WasmResult, str], Any],
+        default_execution_limits: Optional[ExecutionLimits] = None,
+        max_execution_limits: Optional[ExecutionLimits] = None,
     ):
         """
         初始化Runner
@@ -72,6 +79,8 @@ class Runner:
 
         self.executor = ProcessPoolExecutor(max_workers=self.max_workers)
         self.report_callback = report_callback  # 存储异步报告函数
+        self.default_execution_limits = default_execution_limits or ExecutionLimits()
+        self.max_execution_limits = max_execution_limits or ExecutionLimits()
 
         # 用于控制结果监听循环的标志
         self._listener_task: Optional[asyncio.Task] = None
@@ -117,6 +126,10 @@ class Runner:
             args = orjson.loads(task.args)
         except orjson.JSONDecodeError:
             args = []
+        execution_limits = ExecutionLimits.from_proto(task.execution_limits).clamp(
+            defaults=self.default_execution_limits,
+            maximums=self.max_execution_limits,
+        )
 
         self.executor.submit(
             _execute_task,
@@ -125,6 +138,7 @@ class Runner:
             task.entry,
             dict(task.wasi_env.env),  # type: ignore
             list(task.wasi_env.args),  # type: ignore
+            execution_limits.to_dict(),
             task.task_id,
             self.result_queue,  # type: ignore 将共享队列传递给子进程
         )

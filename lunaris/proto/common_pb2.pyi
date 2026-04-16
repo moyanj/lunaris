@@ -21,6 +21,7 @@ class Envelope(_message.Message):
         CREATE_TASK: _ClassVar[Envelope.MessageType]
         UNSUBSCRIBE_TASK: _ClassVar[Envelope.MessageType]
         TASK_CREATED: _ClassVar[Envelope.MessageType]
+        TASK_CREATE_FAILED: _ClassVar[Envelope.MessageType]
     TASK: Envelope.MessageType
     TASK_RESULT: Envelope.MessageType
     CONTROL_COMMAND: Envelope.MessageType
@@ -31,6 +32,7 @@ class Envelope(_message.Message):
     CREATE_TASK: Envelope.MessageType
     UNSUBSCRIBE_TASK: Envelope.MessageType
     TASK_CREATED: Envelope.MessageType
+    TASK_CREATE_FAILED: Envelope.MessageType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     COMPRESSED_FIELD_NUMBER: _ClassVar[int]
@@ -69,3 +71,13 @@ class WasiEnv(_message.Message):
     env: _containers.ScalarMap[str, str]
     args: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, env: _Optional[_Mapping[str, str]] = ..., args: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ExecutionLimits(_message.Message):
+    __slots__ = ("max_fuel", "max_memory_bytes", "max_module_bytes")
+    MAX_FUEL_FIELD_NUMBER: _ClassVar[int]
+    MAX_MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    MAX_MODULE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    max_fuel: int
+    max_memory_bytes: int
+    max_module_bytes: int
+    def __init__(self, max_fuel: _Optional[int] = ..., max_memory_bytes: _Optional[int] = ..., max_module_bytes: _Optional[int] = ...) -> None: ...

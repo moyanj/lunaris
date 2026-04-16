@@ -8,6 +8,7 @@ mod proto;
 
 use cli::Cli;
 use core::Worker;
+use proto::common::ExecutionLimits;
 
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -31,7 +32,23 @@ async fn main() -> anyhow::Result<()> {
     info!("Max concurrency: {}", concurrency);
 
     // 创建worker
-    let mut worker = Worker::new(&args.master, &args.token, name, concurrency).await?;
+    let mut worker = Worker::new(
+        &args.master,
+        &args.token,
+        name,
+        concurrency,
+        ExecutionLimits {
+            max_fuel: args.default_max_fuel,
+            max_memory_bytes: args.default_max_memory_bytes as u64,
+            max_module_bytes: args.default_max_module_bytes as u64,
+        },
+        ExecutionLimits {
+            max_fuel: args.max_fuel,
+            max_memory_bytes: args.max_memory_bytes as u64,
+            max_module_bytes: args.max_module_bytes as u64,
+        },
+    )
+    .await?;
 
     // 运行worker
     if let Err(e) = worker.run().await {

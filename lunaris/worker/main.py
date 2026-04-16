@@ -1,4 +1,5 @@
 import asyncio
+import os
 import secrets
 import platform
 import psutil
@@ -14,10 +15,18 @@ from lunaris.proto.worker_pb2 import (
     UnregisterNode,
 )
 from lunaris.proto.common_pb2 import TaskResult
+from lunaris.runtime import ExecutionLimits
 from lunaris.runtime.engine import WasmResult
 from lunaris.worker.core import Runner
 from loguru import logger
 from lunaris.worker import init_logger
+
+
+def _env_limit(name: str, default: int = 0) -> int:
+    try:
+        return max(int(os.environ.get(name, default)), 0)
+    except ValueError:
+        return default
 
 
 class Worker:
@@ -27,6 +36,8 @@ class Worker:
         token: str,
         name: Optional[str] = None,
         max_concurrency: Optional[int] = None,
+        default_execution_limits: Optional[ExecutionLimits] = None,
+        max_execution_limits: Optional[ExecutionLimits] = None,
     ) -> None:
         init_logger()
         # Worker 配置
@@ -36,13 +47,26 @@ class Worker:
         self.node_id: str = ""
         self.running = False
         self.token = token
+        self.default_execution_limits = default_execution_limits or ExecutionLimits(
+            max_fuel=_env_limit("LUNARIS_WORKER_DEFAULT_MAX_FUEL"),
+            max_memory_bytes=_env_limit("LUNARIS_WORKER_DEFAULT_MAX_MEMORY_BYTES"),
+            max_module_bytes=_env_limit("LUNARIS_WORKER_DEFAULT_MAX_MODULE_BYTES"),
+        )
+        self.max_execution_limits = max_execution_limits or ExecutionLimits(
+            max_fuel=_env_limit("LUNARIS_WORKER_MAX_FUEL"),
+            max_memory_bytes=_env_limit("LUNARIS_WORKER_MAX_MEMORY_BYTES"),
+            max_module_bytes=_env_limit("LUNARIS_WORKER_MAX_MODULE_BYTES"),
+        )
 
         # WebSocket 连接
         self.ws: Optional[ClientConnection] = None
 
         # 任务执行器
         self.runner = Runner(
-            max_workers=self.max_concurrency, report_callback=self.report_result
+            max_workers=self.max_concurrency,
+            report_callback=self.report_result,
+            default_execution_limits=self.default_execution_limits,
+            max_execution_limits=self.max_execution_limits,
         )
         self.num_running = 0
 

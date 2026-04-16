@@ -19,13 +19,42 @@ from contextlib import asynccontextmanager
 import orjson
 from loguru import logger
 from lunaris.master import init_logger
+from lunaris.runtime import ExecutionLimits
+
+
+def _env_limit(name: str, default: int = 0) -> int:
+    try:
+        return max(int(os.environ.get(name, default)), 0)
+    except ValueError:
+        return default
 
 
 class AppState:
-    worker_manager: WorkerManager = WorkerManager()
-    task_manager: TaskManager = TaskManager()
-    client_token: str = os.environ.get("CLIENT_TOKEN", secrets.token_hex(16))
-    worker_token: str = os.environ.get("WORKER_TOKEN", secrets.token_hex(16))
+    def __init__(
+        self,
+        default_execution_limits: Optional[ExecutionLimits] = None,
+        max_execution_limits: Optional[ExecutionLimits] = None,
+    ):
+        self.worker_manager: WorkerManager = WorkerManager()
+        self.task_manager: TaskManager = TaskManager()
+        self.client_token: str = os.environ.get("CLIENT_TOKEN", secrets.token_hex(16))
+        self.worker_token: str = os.environ.get("WORKER_TOKEN", secrets.token_hex(16))
+        self.default_execution_limits = default_execution_limits or ExecutionLimits(
+            max_fuel=_env_limit("LUNARIS_DEFAULT_MAX_FUEL"),
+            max_memory_bytes=_env_limit("LUNARIS_DEFAULT_MAX_MEMORY_BYTES"),
+            max_module_bytes=_env_limit("LUNARIS_DEFAULT_MAX_MODULE_BYTES"),
+        )
+        self.max_execution_limits = max_execution_limits or ExecutionLimits(
+            max_fuel=_env_limit("LUNARIS_MAX_FUEL"),
+            max_memory_bytes=_env_limit("LUNARIS_MAX_MEMORY_BYTES"),
+            max_module_bytes=_env_limit("LUNARIS_MAX_MODULE_BYTES"),
+        )
+
+    def apply_execution_limits(self, requested: ExecutionLimits) -> ExecutionLimits:
+        return requested.clamp(
+            defaults=self.default_execution_limits,
+            maximums=self.max_execution_limits,
+        )
 
     async def close(self):
         await self.worker_manager.close()
@@ -40,7 +69,10 @@ async def lifecycle(app: FastAPI):
     init_logger()
     from lunaris.master.api import app as api
 
-    app.state.state = AppState()
+    app.state.state = AppState(
+        default_execution_limits=getattr(app.state, "default_execution_limits", None),
+        max_execution_limits=getattr(app.state, "max_execution_limits", None),
+    )
     logger.info(f"Worker Token: {app.state.state.worker_token}")
     logger.info(f"Client Token: {app.state.state.client_token}")
     asyncio.create_task(check_heartbeat(app.state.state))
@@ -89,24 +121,34 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
             if type(data) == worker_pb2.NodeStatus:
                 await state.worker_manager.handle_heartbeat(ws, data)
             elif type(data) == common_pb2.TaskResult:
-                await state.task_manager.put_result(data, state.worker_manager)
+                worker = state.worker_manager.get_worker_by_ws(ws)
+                if not worker:
+                    logger.warning("Rejected task result from unregistered worker connection")
+                    break
+                await state.task_manager.put_result(
+                    data, state.worker_manager, worker
+                )
             elif type(data) == worker_pb2.UnregisterNode:
+                worker = state.worker_manager.get_worker_by_ws(ws)
+                if not worker:
+                    logger.warning("Rejected unregister request from unknown worker connection")
+                    break
+                if data.node_id and data.node_id != worker.node_id:
+                    logger.warning(
+                        f"Rejected unregister request for mismatched node_id {data.node_id}"
+                    )
+                    break
                 # 清理worker上的所有任务
-                worker = state.worker_manager.get_worker(data.node_id)
-                if worker:
-                    for task_id in worker.current_tasks[:]:
-                        task = state.task_manager.get_task(task_id)
-                        if task and task.status in ["assigned", "running"]:
-                            task.mark_retrying()
-                            ws = state.task_manager.task_websockets.get(task_id)  # type: ignore
-                            if ws:
-                                state.task_manager.add_task(task, ws)
-                # 移除worker
-                for w in state.worker_manager.workers:
-                    if w.node_id == data.node_id:
-                        state.worker_manager.workers.remove(w)
-                        break
-                logger.info(f"Unregistered node {data.node_id}")
+                for task_id in worker.current_tasks[:]:
+                    task = state.task_manager.get_task(task_id)
+                    if task and task.status in ["assigned", "running"]:
+                        task.mark_retrying()
+                        task_ws = state.task_manager.task_websockets.get(task_id)  # type: ignore
+                        if task_ws:
+                            state.task_manager.add_task(task, task_ws)
+                state.worker_manager.remove_worker(worker)
+                logger.info(f"Unregistered node {worker.node_id}")
+                break
 
             else:
                 await ws.send_text("Invalid message")
@@ -157,6 +199,7 @@ async def distribute_tasks(state: AppState):
                     entry=task.entry,
                     priority=task.priority,
                     wasi_env=task.wasi_env,
+                    execution_limits=task.execution_limits,
                 ),
                 Envelope.MessageType.TASK,
             )

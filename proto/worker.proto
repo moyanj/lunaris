@@ -12,6 +12,7 @@ message Task {
   string entry = 4;            // 函数名
   uint32 priority = 5;         // 优先级
   common.WasiEnv wasi_env = 6; // WASI环境设置
+  common.ExecutionLimits execution_limits = 7; // 执行资源限制
 }
 
 // ========== 精简控制命令 ==========

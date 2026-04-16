@@ -3,6 +3,7 @@ import threading
 from typing import Optional, Dict, Any, List
 from lunaris.client.client import LunarisClient
 from lunaris.proto.common_pb2 import TaskResult
+from lunaris.runtime import ExecutionLimits
 from loguru import logger
 
 
@@ -60,6 +61,7 @@ class SyncLunarisClient:
         args: Optional[List[Any]] = None,
         entry: str = "main",
         priority: int = 0,
+        execution_limits: Optional[ExecutionLimits] = None,
     ) -> str:
         """
         提交WASM任务
@@ -77,7 +79,13 @@ class SyncLunarisClient:
             raise RuntimeError("Client not connected")
 
         async def _submit():
-            return await self._client.submit_task(wasm_module, args, entry, priority)  # type: ignore
+            return await self._client.submit_task(  # type: ignore
+                wasm_module,
+                args,
+                entry,
+                priority,
+                execution_limits=execution_limits,
+            )
 
         return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
 

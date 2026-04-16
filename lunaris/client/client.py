@@ -3,9 +3,15 @@ from dataclasses import dataclass, field
 import json
 from typing import Callable, Optional, Dict, Any, List, Union
 from websockets import connect, ConnectionClosed
-from lunaris.proto.client_pb2 import CreateTask, UnsubscribeTask, TaskCreated
+from lunaris.proto.client_pb2 import (
+    CreateTask,
+    TaskCreateFailed,
+    TaskCreated,
+    UnsubscribeTask,
+)
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.utils import proto2bytes, bytes2proto
+from lunaris.runtime import ExecutionLimits
 
 
 @dataclass
@@ -48,6 +54,7 @@ class LunarisClient:
         entry: str = "wmain",
         priority: int = 0,
         wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
         callback: Optional[Callable] = None,
     ) -> str:
         """
@@ -58,6 +65,7 @@ class LunarisClient:
             args: 任务参数列表
             entry: 入口函数名
             priority: 任务优先级
+            execution_limits: 执行资源限制
             callback: 任务完成回调函数
 
         Returns:
@@ -75,6 +83,7 @@ class LunarisClient:
             entry=entry,
             priority=priority,
             wasi_env=wasi_env.__dict__ if wasi_env else {},
+            execution_limits=execution_limits.to_dict() if execution_limits else {},
         )
 
         # 创建未来对象来等待任务创建响应
@@ -103,6 +112,7 @@ class LunarisClient:
         entry: str = "wmain",
         priority: int = 0,
         wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
         timeout: Optional[float] = None,
     ) -> List[TaskResult]:
         """
@@ -129,6 +139,7 @@ class LunarisClient:
                 entry=entry,
                 priority=priority,
                 wasi_env=wasi_env,
+                execution_limits=execution_limits,
                 callback=lambda result, fut=future: fut.set_result(result),
             )
             task_ids.append(task_id)
@@ -206,6 +217,12 @@ class LunarisClient:
                         future = self._create_futures.pop("pending")
                         if not future.done():
                             future.set_result(result.task_id)
+
+                elif isinstance(result, TaskCreateFailed):
+                    if "pending" in self._create_futures:
+                        future = self._create_futures.pop("pending")
+                        if not future.done():
+                            future.set_exception(RuntimeError(result.error))
 
                 # 处理任务结果
                 elif isinstance(result, TaskResult):
