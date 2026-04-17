@@ -1,7 +1,10 @@
 import asyncio
+from collections import deque
 from dataclasses import dataclass, field
 import json
 from typing import Callable, Optional, Dict, Any, List, Union
+from urllib import request
+from urllib.error import HTTPError
 from websockets import connect, ConnectionClosed
 from lunaris.proto.client_pb2 import (
     CreateTask,
@@ -12,6 +15,7 @@ from lunaris.proto.client_pb2 import (
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.runtime import ExecutionLimits
+from lunaris.client.utils import CompileOptions, SourceLanguage, compile_source
 
 
 @dataclass
@@ -33,10 +37,9 @@ class LunarisClient:
         self.token = token
         self.websocket = None
         self._task_callbacks = {}
-        self._create_futures = {}  # 存储任务创建的未来对象
+        self._create_futures = deque()
         self._running = False
         self._receive_task = None
-        self._message_queue = asyncio.Queue()  # 消息队列
 
     async def connect(self):
         """连接到Master节点"""
@@ -87,9 +90,8 @@ class LunarisClient:
         )
 
         # 创建未来对象来等待任务创建响应
-        future = asyncio.Future()
-        # 暂时存储future，在收到TaskCreated时会设置它
-        self._create_futures["pending"] = future
+        future = asyncio.get_running_loop().create_future()
+        self._create_futures.append(future)
 
         await self.websocket.send(proto2bytes(create_task))
 
@@ -102,8 +104,149 @@ class LunarisClient:
 
             return task_id
         except asyncio.TimeoutError:
-            self._create_futures.pop("pending", None)
+            try:
+                self._create_futures.remove(future)
+            except ValueError:
+                pass
             raise RuntimeError("Task creation timeout")
+
+    async def submit_source(
+        self,
+        language: SourceLanguage,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        wasm_module = compile_source(language, source_code, compile_options)
+        return await self.submit_task(
+            wasm_module=wasm_module,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            callback=callback,
+        )
+
+    async def submit_c(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        return await self.submit_source(
+            "c",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+        )
+
+    async def submit_cxx(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        return await self.submit_source(
+            "cxx",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+        )
+
+    async def submit_zig(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        return await self.submit_source(
+            "zig",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+        )
+
+    async def submit_rust(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        return await self.submit_source(
+            "rust",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+        )
+
+    async def submit_go(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        return await self.submit_source(
+            "go",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+        )
 
     async def submit_task_many(
         self,
@@ -160,32 +303,61 @@ class LunarisClient:
         except asyncio.TimeoutError:
             raise
 
-    '''
     async def get_task_result(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """
-        通过HTTP API获取任务结果
+        return await self._get_rest_data(f"/task/{task_id}")
 
-        Args:
-            task_id: 任务ID
+    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        return await self._get_rest_data(f"/task/{task_id}/status")
 
-        Returns:
-            任务结果字典，如果任务不存在则返回None
-        """
-        import aiohttp
+    async def get_tasks(self) -> Dict[str, Any]:
+        return await self._get_rest_data("/tasks") or {"count": 0, "tasks": []}
 
-        # 从master_uri中提取HTTP地址
-        http_uri = self.master_uri.replace("ws://", "http://").replace(
-            "wss://", "https://"
-        )
+    async def get_tasks_by_status(self, status: str) -> Dict[str, Any]:
+        return await self._get_rest_data(f"/tasks/status/{status}") or {
+            "count": 0,
+            "tasks": [],
+        }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{http_uri}/task/{task_id}") as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data.get("data")
-                else:
+    async def get_tasks_by_worker(self, worker_id: str) -> Dict[str, Any]:
+        return await self._get_rest_data(f"/tasks/worker/{worker_id}") or {
+            "count": 0,
+            "tasks": [],
+        }
+
+    async def get_workers(self) -> Dict[str, Any]:
+        return await self._get_rest_data("/worker") or {"count": 0, "workers": []}
+
+    async def get_stats(self) -> Dict[str, Any]:
+        return await self._get_rest_data("/stats") or {}
+
+    async def _get_rest_data(self, path: str) -> Optional[Dict[str, Any]]:
+        def _fetch():
+            url = f"{self._http_base_uri()}{path}"
+            req = request.Request(url, headers={"X-Client-Token": self.token})
+            try:
+                with request.urlopen(req, timeout=10) as response:
+                    body = response.read()
+            except HTTPError as exc:
+                if exc.code == 404:
                     return None
-    '''
+                error_body = exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(f"HTTP {exc.code}: {error_body}") from exc
+
+            payload = json.loads(body)
+            if payload.get("code") == 404:
+                return None
+            if payload.get("code", 200) >= 400:
+                raise RuntimeError(payload.get("msg", "Request failed"))
+            return payload.get("data")
+
+        return await asyncio.to_thread(_fetch)
+
+    def _http_base_uri(self) -> str:
+        if self.master_uri.startswith("ws://"):
+            return "http://" + self.master_uri[len("ws://") :]
+        if self.master_uri.startswith("wss://"):
+            return "https://" + self.master_uri[len("wss://") :]
+        return self.master_uri.rstrip("/")
 
     async def unsubscribe_tasks(self, task_ids: List[str]):
         """
@@ -213,14 +385,14 @@ class LunarisClient:
 
                 # 处理任务创建响应
                 if isinstance(result, TaskCreated):
-                    if "pending" in self._create_futures:
-                        future = self._create_futures.pop("pending")
+                    if self._create_futures:
+                        future = self._create_futures.popleft()
                         if not future.done():
                             future.set_result(result.task_id)
 
                 elif isinstance(result, TaskCreateFailed):
-                    if "pending" in self._create_futures:
-                        future = self._create_futures.pop("pending")
+                    if self._create_futures:
+                        future = self._create_futures.popleft()
                         if not future.done():
                             future.set_exception(RuntimeError(result.error))
 
@@ -284,9 +456,10 @@ class LunarisClient:
         self._running = False
 
         # 取消所有未完成的任务创建
-        for future in self._create_futures.values():
+        for future in self._create_futures:
             if not future.done():
                 future.cancel()
+        self._create_futures.clear()
 
         if self._receive_task:
             self._receive_task.cancel()

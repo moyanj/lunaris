@@ -2,9 +2,11 @@ import asyncio
 import threading
 from typing import Optional, Dict, Any, List
 from lunaris.client.client import LunarisClient
+from lunaris.client.utils import CompileOptions, SourceLanguage
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.runtime import ExecutionLimits
 from loguru import logger
+from lunaris.client.client import WasiEnv
 
 
 class SyncLunarisClient:
@@ -61,6 +63,7 @@ class SyncLunarisClient:
         args: Optional[List[Any]] = None,
         entry: str = "main",
         priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
     ) -> str:
         """
@@ -84,10 +87,144 @@ class SyncLunarisClient:
                 args,
                 entry,
                 priority,
+                wasi_env=wasi_env,
                 execution_limits=execution_limits,
             )
 
         return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
+
+    def submit_source(
+        self,
+        language: SourceLanguage,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+    ) -> str:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _submit():
+            return await self._client.submit_source(  # type: ignore
+                language=language,
+                source_code=source_code,
+                args=args,
+                entry=entry,
+                priority=priority,
+                wasi_env=wasi_env,
+                execution_limits=execution_limits,
+                compile_options=compile_options,
+            )
+
+        return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
+
+    def submit_c(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+    ) -> str:
+        return self.submit_source(
+            "c",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+        )
+
+    def submit_cxx(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+    ) -> str:
+        return self.submit_source(
+            "cxx",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+        )
+
+    def submit_zig(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+    ) -> str:
+        return self.submit_source(
+            "zig",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+        )
+
+    def submit_rust(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+    ) -> str:
+        return self.submit_source(
+            "rust",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+        )
+
+    def submit_go(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+    ) -> str:
+        return self.submit_source(
+            "go",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+        )
 
     def get_task_result(self, task_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -106,6 +243,60 @@ class SyncLunarisClient:
             return await self._client.get_task_result(task_id)  # type: ignore
 
         return asyncio.run_coroutine_threadsafe(_get_result(), self._loop).result()  # type: ignore
+
+    def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _get_status():
+            return await self._client.get_task_status(task_id)  # type: ignore
+
+        return asyncio.run_coroutine_threadsafe(_get_status(), self._loop).result()  # type: ignore
+
+    def get_tasks(self) -> Dict[str, Any]:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _get_tasks():
+            return await self._client.get_tasks()  # type: ignore
+
+        return asyncio.run_coroutine_threadsafe(_get_tasks(), self._loop).result()  # type: ignore
+
+    def get_tasks_by_status(self, status: str) -> Dict[str, Any]:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _get_tasks():
+            return await self._client.get_tasks_by_status(status)  # type: ignore
+
+        return asyncio.run_coroutine_threadsafe(_get_tasks(), self._loop).result()  # type: ignore
+
+    def get_tasks_by_worker(self, worker_id: str) -> Dict[str, Any]:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _get_tasks():
+            return await self._client.get_tasks_by_worker(worker_id)  # type: ignore
+
+        return asyncio.run_coroutine_threadsafe(_get_tasks(), self._loop).result()  # type: ignore
+
+    def get_workers(self) -> Dict[str, Any]:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _get_workers():
+            return await self._client.get_workers()  # type: ignore
+
+        return asyncio.run_coroutine_threadsafe(_get_workers(), self._loop).result()  # type: ignore
+
+    def get_stats(self) -> Dict[str, Any]:
+        if not self._connected:
+            raise RuntimeError("Client not connected")
+
+        async def _get_stats():
+            return await self._client.get_stats()  # type: ignore
+
+        return asyncio.run_coroutine_threadsafe(_get_stats(), self._loop).result()  # type: ignore
 
     def wait_for_task(
         self, task_id: str, timeout: Optional[float] = None
