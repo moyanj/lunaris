@@ -17,7 +17,7 @@ pub struct WasmResult {
 
 pub struct Runner {
     wasm_engine: Engine,
-    result_tx: mpsc::Sender<(WasmResult, String)>,
+    result_tx: mpsc::Sender<(WasmResult, String, u32)>,
     concurrency: Arc<Semaphore>, // 用信号量控制最大并发数
     default_limits: ExecutionLimits,
     max_limits: ExecutionLimits,
@@ -36,7 +36,7 @@ impl Runner {
         // Listener task: 异步监听结果并调用回调
         let callback = Arc::clone(&report_callback);
         tokio::spawn(async move {
-            while let Some((result, task_id)) = rx.recv().await {
+            while let Some((result, task_id, _attempt)) = rx.recv().await {
                 callback(result, task_id);
             }
         });
@@ -55,7 +55,7 @@ impl Runner {
 
     pub fn new_with_channel(
         max_workers: usize,
-        result_tx: mpsc::Sender<(WasmResult, String)>,
+        result_tx: mpsc::Sender<(WasmResult, String, u32)>,
         default_limits: ExecutionLimits,
         max_limits: ExecutionLimits,
     ) -> Self {
@@ -78,6 +78,7 @@ impl Runner {
         let args_json = task.args;
         let entry = task.entry;
         let task_id = task.task_id.clone();
+        let attempt = task.attempt;
         let mut wasi_env: HashMap<String, String> = HashMap::new();
         let mut wasi_args: Vec<String> = vec![];
         let limits = clamp_limits(
@@ -100,7 +101,7 @@ impl Runner {
             ) {
                 Ok(result) => {
                     // 使用当前运行时发送结果
-                    if let Err(e) = tx.blocking_send((result, task_id)) {
+                    if let Err(e) = tx.blocking_send((result, task_id, attempt)) {
                         eprintln!("Failed to send result: {}", e);
                     }
                 }
@@ -112,7 +113,7 @@ impl Runner {
                         time: 0.0,
                         succeeded: false,
                     };
-                    if let Err(e) = tx.blocking_send((err_result, task_id)) {
+                    if let Err(e) = tx.blocking_send((err_result, task_id, attempt)) {
                         eprintln!("Failed to send error result: {}", e);
                     }
                 }

@@ -17,6 +17,7 @@ def _execute_task(
     wasi_args: dict[str, str],
     execution_limits: dict[str, int],
     task_id: str,
+    attempt: int,
     result_queue: multiprocessing.Queue,
 ):
     """
@@ -42,7 +43,7 @@ def _execute_task(
             execution_limits=limits,
         )
         # 将结果和任务ID放入队列
-        result_queue.put((result, task_id))
+        result_queue.put((result, task_id, attempt))
         logger.info(f"Task {task_id} has been completed.")
 
     except Exception as e:
@@ -57,14 +58,14 @@ def _execute_task(
             time=0,
             succeeded=False,
         )
-        result_queue.put((result, task_id))
+        result_queue.put((result, task_id, attempt))
 
 
 class Runner:
     def __init__(
         self,
         max_workers: int,
-        report_callback: Callable[[WasmResult, str], Any],
+        report_callback: Callable[[WasmResult, str, int], Any],
         default_execution_limits: Optional[ExecutionLimits] = None,
         max_execution_limits: Optional[ExecutionLimits] = None,
     ):
@@ -104,9 +105,9 @@ class Runner:
             try:
                 # 使用非阻塞方式检查队列
                 if not self.result_queue.empty():
-                    result, task_id = self.result_queue.get()
+                    result, task_id, attempt = self.result_queue.get()
                     logger.info(f"Received result from subprocess: {task_id}")
-                    await self.report_callback(result, task_id)
+                    await self.report_callback(result, task_id, attempt)
                 else:
                     # 队列为空时短暂休眠，避免忙等待
                     await asyncio.sleep(0.1)
@@ -140,6 +141,7 @@ class Runner:
             list(task.wasi_env.args),  # type: ignore
             execution_limits.to_dict(),
             task.task_id,
+            task.attempt,
             self.result_queue,  # type: ignore 将共享队列传递给子进程
         )
 

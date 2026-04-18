@@ -13,6 +13,13 @@ message Task {
   uint32 priority = 5;         // 优先级
   common.WasiEnv wasi_env = 6; // WASI环境设置
   common.ExecutionLimits execution_limits = 7; // 执行资源限制
+  uint32 attempt = 8;          // 当前派发对应的尝试次数
+}
+
+message TaskAccepted {
+  string task_id = 1;
+  string node_id = 2;
+  uint32 attempt = 3;
 }
 
 // ========== 精简控制命令 ==========

@@ -76,6 +76,7 @@ async def lifecycle(app: FastAPI):
     logger.info(f"Worker Token: {app.state.state.worker_token}")
     logger.info(f"Client Token: {app.state.state.client_token}")
     asyncio.create_task(check_heartbeat(app.state.state))
+    asyncio.create_task(check_task_leases(app.state.state))
     asyncio.create_task(distribute_tasks(app.state.state))
     app.include_router(api)
     yield
@@ -88,6 +89,7 @@ app = FastAPI(lifespan=lifecycle)
 @app.websocket("/worker")
 async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_state)):
     await ws.accept()
+    worker_removed = False
     try:
         reg_data: Optional[bytes] = None
         try:
@@ -120,6 +122,21 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
                 continue
             if type(data) == worker_pb2.NodeStatus:
                 await state.worker_manager.handle_heartbeat(ws, data)
+            elif type(data) == worker_pb2.TaskAccepted:
+                worker = state.worker_manager.get_worker_by_ws(ws)
+                if not worker:
+                    logger.warning("Rejected task acceptance from unregistered worker")
+                    break
+                if data.node_id and data.node_id != worker.node_id:
+                    logger.warning(
+                        f"Rejected task acceptance from mismatched node_id {data.node_id}"
+                    )
+                    break
+                state.task_manager.mark_task_running(
+                    data.task_id,
+                    worker,
+                    data.attempt,
+                )
             elif type(data) == common_pb2.TaskResult:
                 worker = state.worker_manager.get_worker_by_ws(ws)
                 if not worker:
@@ -138,15 +155,11 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
                         f"Rejected unregister request for mismatched node_id {data.node_id}"
                     )
                     break
-                # 清理worker上的所有任务
-                for task_id in worker.current_tasks[:]:
-                    task = state.task_manager.get_task(task_id)
-                    if task and task.status in ["assigned", "running"]:
-                        task.mark_retrying()
-                        task_ws = state.task_manager.task_websockets.get(task_id)  # type: ignore
-                        if task_ws:
-                            state.task_manager.add_task(task, task_ws)
+                state.task_manager.requeue_worker_tasks(
+                    worker, reason="worker unregistered"
+                )
                 state.worker_manager.remove_worker(worker)
+                worker_removed = True
                 logger.info(f"Unregistered node {worker.node_id}")
                 break
 
@@ -161,6 +174,14 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         logger.error(traceback.format_exc())
         logger.error(f"Error: {e}")
     finally:
+        if not worker_removed:
+            worker = state.worker_manager.get_worker_by_ws(ws)
+            if worker:
+                state.task_manager.requeue_worker_tasks(
+                    worker, reason="worker websocket disconnected"
+                )
+                state.worker_manager.remove_worker(worker)
+
         if ws.client_state != WebSocketState.DISCONNECTED:
             try:
                 await ws.close()
@@ -173,7 +194,21 @@ async def check_heartbeat(state: AppState):
     try:
         while True:
             await asyncio.sleep(20)
-            await state.worker_manager.remove_inactive_workers()
+            removed_workers = await state.worker_manager.remove_inactive_workers()
+            for worker in removed_workers:
+                state.task_manager.requeue_worker_tasks(
+                    worker, reason="worker heartbeat timeout"
+                )
+    except asyncio.CancelledError:
+        pass
+
+
+async def check_task_leases(state: AppState):
+    logger.info("Task lease detection task started")
+    try:
+        while True:
+            await asyncio.sleep(5)
+            state.task_manager.requeue_expired_leases(state.worker_manager)
     except asyncio.CancelledError:
         pass
 
@@ -190,17 +225,31 @@ async def distribute_tasks(state: AppState):
         await state.task_manager.assign_task_to_worker(task, worker)
 
         # 发送任务到worker
-        await worker.websocket.send_bytes(
-            proto2bytes(
-                TaskProto(
-                    task_id=task.task_id,
-                    wasm_module=task.wasm_module,
-                    args=orjson.dumps(task.args).decode("utf-8"),
-                    entry=task.entry,
-                    priority=task.priority,
-                    wasi_env=task.wasi_env,
-                    execution_limits=task.execution_limits,
-                ),
-                Envelope.MessageType.TASK,
+        try:
+            await worker.websocket.send_bytes(
+                proto2bytes(
+                    TaskProto(
+                        task_id=task.task_id,
+                        wasm_module=task.wasm_module,
+                        args=orjson.dumps(task.args).decode("utf-8"),
+                        entry=task.entry,
+                        priority=task.priority,
+                        wasi_env=task.wasi_env,
+                        execution_limits=task.execution_limits,
+                        attempt=task.attempt_count,
+                    ),
+                    Envelope.MessageType.TASK,
+                )
             )
-        )
+        except Exception as exc:
+            logger.warning(
+                "Failed to dispatch task {} to worker {}: {}",
+                task.task_id,
+                worker.node_id,
+                exc,
+            )
+            worker.remove_task(task.task_id)
+            state.task_manager.running_tasks.pop(task.task_id, None)
+            state.task_manager._reschedule_or_fail_task(
+                task, "task dispatch failed"
+            )

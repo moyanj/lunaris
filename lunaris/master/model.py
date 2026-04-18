@@ -29,7 +29,9 @@ class Task(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    retry_count: int = 0
+    assigned_at: Optional[datetime] = None
+    lease_expires_at: Optional[datetime] = None
+    attempt_count: int = 0
     max_retries: int = 3
 
     def to_dict(self) -> dict:
@@ -47,7 +49,12 @@ class Task(BaseModel):
             "completed_at": (
                 self.completed_at.isoformat() if self.completed_at else None
             ),
-            "retry_count": self.retry_count,
+            "assigned_at": self.assigned_at.isoformat() if self.assigned_at else None,
+            "lease_expires_at": (
+                self.lease_expires_at.isoformat() if self.lease_expires_at else None
+            ),
+            "attempt_count": self.attempt_count,
+            "retry_count": max(0, self.attempt_count - 1),
             "max_retries": self.max_retries,
         }
 
@@ -61,29 +68,41 @@ class Task(BaseModel):
         them = (-other.priority, other.task_id)
         return me > them
 
-    def assign_to_worker(self, worker_id: str):
+    def assign_to_worker(self, worker_id: str, lease_expires_at: datetime):
         """将任务分配给worker"""
+        self.attempt_count += 1
         self.status = TaskStatus.ASSIGNED
         self.assigned_worker = worker_id
+        self.assigned_at = datetime.now()
+        self.lease_expires_at = lease_expires_at
 
     def mark_running(self):
         """标记任务开始运行"""
         self.status = TaskStatus.RUNNING
         self.started_at = datetime.now()
+        self.lease_expires_at = None
 
     def mark_completed(self):
         """标记任务完成"""
         self.status = TaskStatus.COMPLETED
         self.completed_at = datetime.now()
+        self.lease_expires_at = None
 
     def mark_failed(self):
         """标记任务失败"""
         self.status = TaskStatus.FAILED
         self.completed_at = datetime.now()
+        self.lease_expires_at = None
 
-    def mark_retrying(self):
-        """标记任务重试"""
-        self.status = TaskStatus.RETRYING
-        self.retry_count += 1
+    def reset_for_retry(self):
+        """重新放回待调度状态。"""
+        self.status = TaskStatus.PENDING
         self.assigned_worker = None  # 重置worker分配
+        self.assigned_at = None
+        self.lease_expires_at = None
         self.started_at = None  # 重置开始时间
+
+    @property
+    def can_retry(self) -> bool:
+        """max_retries 表示首次执行之外允许的重试次数。"""
+        return self.attempt_count <= self.max_retries

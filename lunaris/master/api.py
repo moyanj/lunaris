@@ -2,7 +2,7 @@ import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket
-from fastapi.websockets import WebSocketState
+from fastapi.websockets import WebSocketDisconnect, WebSocketState
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.manager import Task
 from lunaris.proto.client_pb2 import CreateTask, TaskCreateFailed, TaskCreated
@@ -78,12 +78,22 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                         logger.info(f"Created task with ID: {task.task_id}")
                         state.task_manager.add_task(task, ws)
                         await ws.send_bytes(
-                            proto2bytes(TaskCreated(task_id=task.task_id))
+                            proto2bytes(
+                                TaskCreated(
+                                    task_id=task.task_id,
+                                    request_id=data.request_id,
+                                )
+                            )
                         )
                     except Exception as exc:
                         logger.error(f"Failed to create task: {str(exc)}")
                         await ws.send_bytes(
-                            proto2bytes(TaskCreateFailed(error=str(exc)))
+                            proto2bytes(
+                                TaskCreateFailed(
+                                    error=str(exc),
+                                    request_id=data.request_id,
+                                )
+                            )
                         )
 
                 elif type(data) is UnsubscribeTask:
@@ -92,9 +102,13 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                             state.task_manager.task_websockets.pop(task.task_id)
                     await ws.close()
 
+            except WebSocketDisconnect:
+                break
             except Exception as e:
                 logger.error(f"Error processing WebSocket message: {str(e)}")
 
+    except WebSocketDisconnect:
+        pass
     except Exception as e:
         logger.error(f"WebSocket connection error: {str(e)}")
     finally:

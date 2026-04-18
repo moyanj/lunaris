@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\x0elunaris.common\"\xce\x02\n\x08\x45nvelope\x12\x32\n\x04type\x18\x01 \x01(\x0e\x32$.lunaris.common.Envelope.MessageType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12\x12\n\ncompressed\x18\x03 \x01(\x08\"\xe8\x01\n\x0bMessageType\x12\x08\n\x04TASK\x10\x00\x12\x0f\n\x0bTASK_RESULT\x10\x01\x12\x13\n\x0f\x43ONTROL_COMMAND\x10\x02\x12\x0f\n\x0bNODE_STATUS\x10\x03\x12\x15\n\x11NODE_REGISTRATION\x10\x04\x12\x1b\n\x17NODE_REGISTRATION_REPLY\x10\x05\x12\x13\n\x0fUNREGISTER_NODE\x10\x06\x12\x0f\n\x0b\x43REATE_TASK\x10\x07\x12\x14\n\x10UNSUBSCRIBE_TASK\x10\x08\x12\x10\n\x0cTASK_CREATED\x10\t\x12\x16\n\x12TASK_CREATE_FAILED\x10\n\"n\n\nTaskResult\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\x0e\n\x06stdout\x18\x03 \x01(\x0c\x12\x0e\n\x06stderr\x18\x04 \x01(\x0c\x12\x0c\n\x04time\x18\x05 \x01(\x01\x12\x11\n\tsucceeded\x18\x06 \x01(\x08\"r\n\x07WasiEnv\x12-\n\x03\x65nv\x18\x01 \x03(\x0b\x32 .lunaris.common.WasiEnv.EnvEntry\x12\x0c\n\x04\x61rgs\x18\x02 \x03(\t\x1a*\n\x08\x45nvEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"W\n\x0f\x45xecutionLimits\x12\x10\n\x08max_fuel\x18\x01 \x01(\x04\x12\x18\n\x10max_memory_bytes\x18\x02 \x01(\x04\x12\x18\n\x10max_module_bytes\x18\x03 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\x0elunaris.common\"\xe1\x02\n\x08\x45nvelope\x12\x32\n\x04type\x18\x01 \x01(\x0e\x32$.lunaris.common.Envelope.MessageType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12\x12\n\ncompressed\x18\x03 \x01(\x08\"\xfb\x01\n\x0bMessageType\x12\x08\n\x04TASK\x10\x00\x12\x0f\n\x0bTASK_RESULT\x10\x01\x12\x13\n\x0f\x43ONTROL_COMMAND\x10\x02\x12\x0f\n\x0bNODE_STATUS\x10\x03\x12\x15\n\x11NODE_REGISTRATION\x10\x04\x12\x1b\n\x17NODE_REGISTRATION_REPLY\x10\x05\x12\x13\n\x0fUNREGISTER_NODE\x10\x06\x12\x0f\n\x0b\x43REATE_TASK\x10\x07\x12\x14\n\x10UNSUBSCRIBE_TASK\x10\x08\x12\x10\n\x0cTASK_CREATED\x10\t\x12\x16\n\x12TASK_CREATE_FAILED\x10\n\x12\x11\n\rTASK_ACCEPTED\x10\x0b\"\x7f\n\nTaskResult\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\x0e\n\x06stdout\x18\x03 \x01(\x0c\x12\x0e\n\x06stderr\x18\x04 \x01(\x0c\x12\x0c\n\x04time\x18\x05 \x01(\x01\x12\x11\n\tsucceeded\x18\x06 \x01(\x08\x12\x0f\n\x07\x61ttempt\x18\x07 \x01(\r\"r\n\x07WasiEnv\x12-\n\x03\x65nv\x18\x01 \x03(\x0b\x32 .lunaris.common.WasiEnv.EnvEntry\x12\x0c\n\x04\x61rgs\x18\x02 \x03(\t\x1a*\n\x08\x45nvEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"W\n\x0f\x45xecutionLimits\x12\x10\n\x08max_fuel\x18\x01 \x01(\x04\x12\x18\n\x10max_memory_bytes\x18\x02 \x01(\x04\x12\x18\n\x10max_module_bytes\x18\x03 \x01(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,15 +34,15 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_WASIENV_ENVENTRY']._loaded_options = None
   _globals['_WASIENV_ENVENTRY']._serialized_options = b'8\001'
   _globals['_ENVELOPE']._serialized_start=33
-  _globals['_ENVELOPE']._serialized_end=367
+  _globals['_ENVELOPE']._serialized_end=386
   _globals['_ENVELOPE_MESSAGETYPE']._serialized_start=135
-  _globals['_ENVELOPE_MESSAGETYPE']._serialized_end=367
-  _globals['_TASKRESULT']._serialized_start=369
-  _globals['_TASKRESULT']._serialized_end=479
-  _globals['_WASIENV']._serialized_start=481
-  _globals['_WASIENV']._serialized_end=595
-  _globals['_WASIENV_ENVENTRY']._serialized_start=553
-  _globals['_WASIENV_ENVENTRY']._serialized_end=595
-  _globals['_EXECUTIONLIMITS']._serialized_start=597
-  _globals['_EXECUTIONLIMITS']._serialized_end=684
+  _globals['_ENVELOPE_MESSAGETYPE']._serialized_end=386
+  _globals['_TASKRESULT']._serialized_start=388
+  _globals['_TASKRESULT']._serialized_end=515
+  _globals['_WASIENV']._serialized_start=517
+  _globals['_WASIENV']._serialized_end=631
+  _globals['_WASIENV_ENVENTRY']._serialized_start=589
+  _globals['_WASIENV_ENVENTRY']._serialized_end=631
+  _globals['_EXECUTIONLIMITS']._serialized_start=633
+  _globals['_EXECUTIONLIMITS']._serialized_end=720
 # @@protoc_insertion_point(module_scope)

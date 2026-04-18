@@ -109,16 +109,17 @@ impl Worker {
         let node_id = self.node_id.clone();
         let num_running = Arc::clone(&self.num_running);
         let running = Arc::clone(&self.running);
+        let max_concurrency = self.max_concurrency;
 
         tokio::spawn(async move {
             while *running.lock().await {
                 interval.tick().await;
 
                 let current_tasks = *num_running.lock().await;
-                let state = if current_tasks == 0 {
-                    worker::node_status::NodeState::Idle
-                } else {
+                let state = if current_tasks == max_concurrency {
                     worker::node_status::NodeState::Busy
+                } else {
+                    worker::node_status::NodeState::Idle
                 };
 
                 let status = worker::NodeStatus {
@@ -150,6 +151,7 @@ impl Worker {
         >,
         result: WasmResult,
         task_id: String,
+        attempt: u32,
     ) -> Result<()> {
         let task_result = common::TaskResult {
             task_id,
@@ -158,6 +160,7 @@ impl Worker {
             stderr: result.stderr,
             time: result.time,
             succeeded: result.succeeded,
+            attempt,
         };
 
         let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult)?;
@@ -166,7 +169,30 @@ impl Worker {
         Ok(())
     }
 
-    async fn handle_task(&self, task: worker::Task) -> Result<()> {
+    async fn handle_task(
+        &self,
+        task: worker::Task,
+        write: Arc<
+            Mutex<
+                futures_util::stream::SplitSink<
+                    tokio_tungstenite::WebSocketStream<
+                        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+                    >,
+                    Message,
+                >,
+            >,
+        >,
+    ) -> Result<()> {
+        let mut write_guard = write.lock().await;
+        Self::report_task_accepted_static(
+            &mut write_guard,
+            task.task_id.clone(),
+            self.node_id.clone(),
+            task.attempt,
+        )
+        .await?;
+        drop(write_guard);
+
         if let Some(runner) = &self.runner {
             {
                 let mut num_running = self.num_running.lock().await;
@@ -230,13 +256,13 @@ impl Worker {
         let num_running_clone = Arc::clone(&self.num_running);
         tokio::spawn(async move {
             while *running_clone.lock().await {
-                if let Some((result, task_id)) = result_rx.recv().await {
-                    if let Ok(mut write_guard) = write_arc_clone.try_lock() {
-                        if let Err(e) =
-                            Self::report_result_static(&mut write_guard, result, task_id).await
-                        {
-                            error!("Failed to report result: {}", e);
-                        }
+                if let Some((result, task_id, attempt)) = result_rx.recv().await {
+                    let mut write_guard = write_arc_clone.lock().await;
+                    if let Err(e) =
+                        Self::report_result_static(&mut write_guard, result, task_id, attempt)
+                            .await
+                    {
+                        error!("Failed to report result: {}", e);
                     }
 
                     // 减少运行任务计数
@@ -255,7 +281,9 @@ impl Worker {
                         if let Ok((proto_message, tp)) = proto::from_bytes(&data) {
                             if let MessageType::Task = tp {
                                 if let Ok(task) = worker::Task::decode(proto_message.as_ref()) {
-                                    if let Err(e) = self.handle_task(task).await {
+                                    if let Err(e) =
+                                        self.handle_task(task, Arc::clone(&write_arc)).await
+                                    {
                                         error!("Failed to handle task: {}", e);
                                     }
                                 }
@@ -288,6 +316,7 @@ impl Worker {
         >,
         result: WasmResult,
         task_id: String,
+        attempt: u32,
     ) -> Result<()> {
         let task_result = common::TaskResult {
             task_id,
@@ -296,9 +325,31 @@ impl Worker {
             stderr: result.stderr,
             time: result.time,
             succeeded: result.succeeded,
+            attempt,
         };
 
         let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult)?;
+        write.send(Message::Binary(bytes.into())).await?;
+        Ok(())
+    }
+
+    async fn report_task_accepted_static(
+        write: &mut futures_util::stream::SplitSink<
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+            Message,
+        >,
+        task_id: String,
+        node_id: String,
+        attempt: u32,
+    ) -> Result<()> {
+        let accepted = worker::TaskAccepted {
+            task_id,
+            node_id,
+            attempt,
+        };
+        let bytes = proto::to_bytes(&accepted.encode_to_vec(), MessageType::TaskAccepted)?;
         write.send(Message::Binary(bytes.into())).await?;
         Ok(())
     }

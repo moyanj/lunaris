@@ -22,6 +22,7 @@ class Envelope(_message.Message):
         UNSUBSCRIBE_TASK: _ClassVar[Envelope.MessageType]
         TASK_CREATED: _ClassVar[Envelope.MessageType]
         TASK_CREATE_FAILED: _ClassVar[Envelope.MessageType]
+        TASK_ACCEPTED: _ClassVar[Envelope.MessageType]
     TASK: Envelope.MessageType
     TASK_RESULT: Envelope.MessageType
     CONTROL_COMMAND: Envelope.MessageType
@@ -33,6 +34,7 @@ class Envelope(_message.Message):
     UNSUBSCRIBE_TASK: Envelope.MessageType
     TASK_CREATED: Envelope.MessageType
     TASK_CREATE_FAILED: Envelope.MessageType
+    TASK_ACCEPTED: Envelope.MessageType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     COMPRESSED_FIELD_NUMBER: _ClassVar[int]
@@ -42,20 +44,22 @@ class Envelope(_message.Message):
     def __init__(self, type: _Optional[_Union[Envelope.MessageType, str]] = ..., payload: _Optional[bytes] = ..., compressed: _Optional[bool] = ...) -> None: ...
 
 class TaskResult(_message.Message):
-    __slots__ = ("task_id", "result", "stdout", "stderr", "time", "succeeded")
+    __slots__ = ("task_id", "result", "stdout", "stderr", "time", "succeeded", "attempt")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
     STDOUT_FIELD_NUMBER: _ClassVar[int]
     STDERR_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
     SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_FIELD_NUMBER: _ClassVar[int]
     task_id: str
     result: str
     stdout: bytes
     stderr: bytes
     time: float
     succeeded: bool
-    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ...) -> None: ...
+    attempt: int
+    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ..., attempt: _Optional[int] = ...) -> None: ...
 
 class WasiEnv(_message.Message):
     __slots__ = ("env", "args")

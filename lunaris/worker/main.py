@@ -12,6 +12,7 @@ from lunaris.proto.worker_pb2 import (
     NodeRegistration,
     NodeStatus,
     Task,
+    TaskAccepted,
     UnregisterNode,
 )
 from lunaris.proto.common_pb2 import TaskResult
@@ -136,7 +137,7 @@ class Worker:
 
         logger.info(f"Registered.")
 
-    async def report_result(self, result: WasmResult, task_id: str) -> None:
+    async def report_result(self, result: WasmResult, task_id: str, attempt: int) -> None:
         """向Master报告任务结果"""
         if not self.ws:
             raise ConnectionError("WebSocket未连接")
@@ -148,6 +149,7 @@ class Worker:
             stderr=result.stderr,
             time=result.time,
             succeeded=result.succeeded,
+            attempt=attempt,
         )
         self.num_running -= 1
 
@@ -158,6 +160,17 @@ class Worker:
         if not self.runner:
             raise RuntimeError("执行器未初始化")
         logger.info(f"Received task: {task.task_id}")
+        if not self.ws:
+            raise ConnectionError("WebSocket连接未建立")
+        await self.ws.send(
+            proto2bytes(
+                TaskAccepted(
+                    task_id=task.task_id,
+                    node_id=self.node_id,
+                    attempt=task.attempt,
+                )
+            )
+        )
         self.num_running += 1
         logger.debug(f"Number of running tasks:{self.num_running}")
         self.runner.submit(task)

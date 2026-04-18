@@ -6,6 +6,7 @@ from lunaris.proto.client_pb2 import (
 )
 from lunaris.proto.worker_pb2 import (
     Task,
+    TaskAccepted,
     ControlCommand,
     NodeStatus,
     NodeRegistration,
@@ -49,6 +50,7 @@ MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
     Envelope.MessageType.NODE_REGISTRATION: NodeRegistration,
     Envelope.MessageType.NODE_REGISTRATION_REPLY: NodeRegistrationReply,
     Envelope.MessageType.UNREGISTER_NODE: UnregisterNode,
+    Envelope.MessageType.TASK_ACCEPTED: TaskAccepted,
     Envelope.MessageType.CREATE_TASK: CreateTask,
     Envelope.MessageType.UNSUBSCRIBE_TASK: UnsubscribeTask,
     Envelope.MessageType.TASK_CREATED: TaskCreated,

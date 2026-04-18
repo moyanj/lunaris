@@ -1,7 +1,7 @@
 import asyncio
-from collections import deque
 from dataclasses import dataclass, field
 import json
+import secrets
 from typing import Callable, Optional, Dict, Any, List, Union
 from urllib import request
 from urllib.error import HTTPError
@@ -37,7 +37,7 @@ class LunarisClient:
         self.token = token
         self.websocket = None
         self._task_callbacks = {}
-        self._create_futures = deque()
+        self._create_futures = {}
         self._running = False
         self._receive_task = None
 
@@ -80,6 +80,7 @@ class LunarisClient:
         if type(wasm_module) is str:
             wasm_module = wasm_module.encode("utf-8")
 
+        request_id = secrets.token_hex(16)
         create_task = CreateTask(
             wasm_module=wasm_module,  # type: ignore
             args=json.dumps(args or []),
@@ -87,11 +88,12 @@ class LunarisClient:
             priority=priority,
             wasi_env=wasi_env.__dict__ if wasi_env else {},
             execution_limits=execution_limits.to_dict() if execution_limits else {},
+            request_id=request_id,
         )
 
         # 创建未来对象来等待任务创建响应
         future = asyncio.get_running_loop().create_future()
-        self._create_futures.append(future)
+        self._create_futures[request_id] = future
 
         await self.websocket.send(proto2bytes(create_task))
 
@@ -104,10 +106,7 @@ class LunarisClient:
 
             return task_id
         except asyncio.TimeoutError:
-            try:
-                self._create_futures.remove(future)
-            except ValueError:
-                pass
+            self._create_futures.pop(request_id, None)
             raise RuntimeError("Task creation timeout")
 
     async def submit_source(
@@ -385,14 +384,14 @@ class LunarisClient:
 
                 # 处理任务创建响应
                 if isinstance(result, TaskCreated):
-                    if self._create_futures:
-                        future = self._create_futures.popleft()
+                    future = self._create_futures.pop(result.request_id, None)
+                    if future:
                         if not future.done():
                             future.set_result(result.task_id)
 
                 elif isinstance(result, TaskCreateFailed):
-                    if self._create_futures:
-                        future = self._create_futures.popleft()
+                    future = self._create_futures.pop(result.request_id, None)
+                    if future:
                         if not future.done():
                             future.set_exception(RuntimeError(result.error))
 
@@ -456,7 +455,7 @@ class LunarisClient:
         self._running = False
 
         # 取消所有未完成的任务创建
-        for future in self._create_futures:
+        for future in self._create_futures.values():
             if not future.done():
                 future.cancel()
         self._create_futures.clear()

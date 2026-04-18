@@ -11,10 +11,17 @@ message CreateTask {
   uint32 priority = 4;         // 优先级
   common.WasiEnv wasi_env = 6; // WASI环境设置
   common.ExecutionLimits execution_limits = 7; // 执行资源限制
+  string request_id = 8;       // 客户端请求ID，用于匹配异步创建响应
 }
 
-message TaskCreated { string task_id = 1; }
+message TaskCreated {
+  string task_id = 1;
+  string request_id = 2;
+}
 
-message TaskCreateFailed { string error = 1; }
+message TaskCreateFailed {
+  string error = 1;
+  string request_id = 2;
+}
 
 message UnsubscribeTask { repeated string task_id = 1; }

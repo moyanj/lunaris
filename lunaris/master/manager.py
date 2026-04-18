@@ -129,9 +129,10 @@ class WorkerManager:
         async with self.condition:
             self.condition.notify_all()
 
-    async def remove_inactive_workers(self):
+    async def remove_inactive_workers(self) -> List[Worker]:
         cutoff_time = datetime.now() - timedelta(seconds=20)
-        workers_to_remove = []
+        workers_to_remove: List[Worker] = []
+        removed_workers: List[Worker] = []
 
         for w in self.workers:
             if w.websocket.client_state == WebSocketState.DISCONNECTED:
@@ -146,19 +147,22 @@ class WorkerManager:
             try:
                 if w.websocket.client_state != WebSocketState.DISCONNECTED:
                     await w.websocket.close()
-            except:
+            except Exception:
                 pass
             self.workers.remove(w)
+            removed_workers.append(w)
+
+        return removed_workers
 
 
 class TaskManager:
-    def __init__(self):
+    def __init__(self, lease_timeout_seconds: int = 30):
         self.task_queue: asyncio.PriorityQueue[Task] = asyncio.PriorityQueue()
         self._tasks_dict: Dict[str, Task] = {}  # 任务ID到Task对象的映射
         self.running_tasks: Dict[str, Task] = {}  # 正在运行的任务
-        self.failed_count: Dict[str, int] = {}
         self.task_websockets: Dict[str, WebSocket] = {}
         self.result = deque(maxlen=1024)
+        self.lease_timeout = timedelta(seconds=lease_timeout_seconds)
 
     def add_task(self, task: Task, ws: WebSocket) -> None:
         self.task_queue.put_nowait(task)
@@ -193,9 +197,110 @@ class TaskManager:
 
     async def assign_task_to_worker(self, task: Task, worker: Worker):
         """将任务分配给worker"""
-        task.assign_to_worker(worker.node_id)
+        task.assign_to_worker(worker.node_id, datetime.now() + self.lease_timeout)
         worker.add_task(task.task_id)
         self.running_tasks[task.task_id] = task
+
+    def requeue_worker_tasks(self, worker: Worker, reason: str = "") -> List[str]:
+        """回收 worker 上尚未完成的任务并重新入队。"""
+        requeued_task_ids: List[str] = []
+
+        for task_id in worker.current_tasks[:]:
+            task = self.get_task(task_id)
+            if not task:
+                worker.remove_task(task_id)
+                self.running_tasks.pop(task_id, None)
+                continue
+
+            self.running_tasks.pop(task_id, None)
+
+            if task.status not in {
+                TaskStatus.ASSIGNED,
+                TaskStatus.RUNNING,
+            }:
+                worker.remove_task(task_id)
+                continue
+
+            worker.remove_task(task_id)
+            if self._reschedule_or_fail_task(task, reason):
+                requeued_task_ids.append(task_id)
+            else:
+                logger.warning(
+                    "Task {} on worker {} reached retry limit during {}",
+                    task_id,
+                    worker.node_id,
+                    reason or "worker recovery",
+                )
+
+        if requeued_task_ids:
+            logger.warning(
+                "Requeued {} task(s) from worker {} due to {}: {}",
+                len(requeued_task_ids),
+                worker.node_id,
+                reason or "unknown reason",
+                ", ".join(requeued_task_ids),
+            )
+
+        return requeued_task_ids
+
+    def mark_task_running(
+        self, task_id: str, worker: Worker, attempt: int
+    ) -> Optional[Task]:
+        task = self.running_tasks.get(task_id)
+        if not task:
+            logger.warning("Received task acceptance for unknown task: {}", task_id)
+            return None
+
+        if task.assigned_worker != worker.node_id:
+            logger.warning(
+                "Rejected task acceptance for task {} from unexpected worker {}",
+                task_id,
+                worker.node_id,
+            )
+            return None
+
+        if task.attempt_count != attempt:
+            logger.warning(
+                "Rejected task acceptance for task {} with stale attempt {} (current {})",
+                task_id,
+                attempt,
+                task.attempt_count,
+            )
+            return None
+
+        task.mark_running()
+        return task
+
+    def requeue_expired_leases(self, worker_manager: WorkerManager) -> List[str]:
+        expired_task_ids: List[str] = []
+        now = datetime.now()
+
+        for task in list(self.running_tasks.values()):
+            if task.status != TaskStatus.ASSIGNED or not task.lease_expires_at:
+                continue
+            if task.lease_expires_at > now:
+                continue
+
+            worker = (
+                worker_manager.get_worker(task.assigned_worker)
+                if task.assigned_worker
+                else None
+            )
+            if worker:
+                worker.remove_task(task.task_id)
+
+            self.running_tasks.pop(task.task_id, None)
+            if self._reschedule_or_fail_task(task, "task acceptance lease expired"):
+                expired_task_ids.append(task.task_id)
+
+        if expired_task_ids:
+            logger.warning(
+                "Requeued {} task(s) after lease expiry: {}",
+                len(expired_task_ids),
+                ", ".join(expired_task_ids),
+            )
+
+        return expired_task_ids
 
     async def put_result(
         self, result: TaskResult, worker_manager: WorkerManager, source_worker: Worker
@@ -216,6 +321,15 @@ class TaskManager:
             )
             return
 
+        if task.attempt_count != result.attempt:
+            logger.warning(
+                "Rejected task result for task {} with stale attempt {} (current {})",
+                result.task_id,
+                result.attempt,
+                task.attempt_count,
+            )
+            return
+
         # 更新worker状态
         worker = worker_manager.get_worker(task.assigned_worker)  # type: ignore
         if worker:
@@ -232,33 +346,47 @@ class TaskManager:
             self.result.append(result)
             logger.info(f"Task {result.task_id} completed successfully")
 
-            # 清理失败计数
-            if result.task_id in self.failed_count:
-                del self.failed_count[result.task_id]
-
         else:
-            # 任务失败处理
-            failure_count = self.failed_count.get(result.task_id, 0) + 1
-            self.failed_count[result.task_id] = failure_count
+            logger.error(
+                "Task {} failed on attempt {}",
+                result.task_id,
+                task.attempt_count,
+            )
 
-            logger.error(f"Task {result.task_id} failed (attempt {failure_count})")
-
-            if failure_count >= task.max_retries:
-                # 达到最大重试次数
+            if task.can_retry:
+                logger.info(
+                    "Retrying task {} after failed attempt {}",
+                    result.task_id,
+                    task.attempt_count,
+                )
+                self._reschedule_or_fail_task(task, "task execution failed")
+            else:
                 task.mark_failed()
-                logger.error(f"Task {result.task_id} reached maximum retries")
+                logger.error(
+                    "Task {} reached maximum retries after attempt {}",
+                    result.task_id,
+                    task.attempt_count,
+                )
                 ws = self.task_websockets.get(result.task_id)
                 if ws:
                     await ws.send_bytes(proto2bytes(result))
                 self.result.append(result)
-                # 清理失败计数
-                del self.failed_count[result.task_id]
-            else:
-                # 重试任务
-                task.mark_retrying()
-                logger.info(
-                    f"Retrying task {result.task_id} (attempt {failure_count + 1})"
-                )
-                ws = self.task_websockets.get(result.task_id)
-                if ws:
-                    self.add_task(task, ws)
+
+    def _reschedule_or_fail_task(self, task: Task, reason: str) -> bool:
+        ws = self.task_websockets.get(task.task_id)
+        if not ws:
+            logger.warning(
+                "Cannot reschedule task {} during {}: missing client websocket",
+                task.task_id,
+                reason,
+            )
+            task.mark_failed()
+            return False
+
+        if task.can_retry:
+            task.reset_for_retry()
+            self.add_task(task, ws)
+            return True
+
+        task.mark_failed()
+        return False

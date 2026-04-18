@@ -15,6 +15,7 @@ message Envelope {
     UNSUBSCRIBE_TASK = 8;
     TASK_CREATED = 9;
     TASK_CREATE_FAILED = 10;
+    TASK_ACCEPTED = 11;
   }
 
   MessageType type = 1;
@@ -29,6 +30,7 @@ message TaskResult {
   bytes stderr = 4;   // 错误输出
   double time = 5;    // 运行时间（毫秒）
   bool succeeded = 6; // 是否成功
+  uint32 attempt = 7; // 对应的任务尝试次数
 }
 
 message WasiEnv {

@@ -7,13 +7,22 @@ if [ ! -d "proto" ] || [ ! -f "proto/common.proto" ]; then
   exit 1
 fi
 
-# 检查 protoc 是否安装
-if ! command -v protoc &> /dev/null; then
+# 优先使用仓库内置的 protoc，避免系统版本过高导致 Python runtime 不兼容
+LOCAL_PROTOC="./.tools/protoc-33.6/bin/protoc"
+if [ -x "${LOCAL_PROTOC}" ]; then
+  PROTOC_BIN="${LOCAL_PROTOC}"
+elif command -v protoc &> /dev/null; then
+  PROTOC_BIN="$(command -v protoc)"
+else
   echo "❌ 错误：protoc 未安装，请先安装 protobuf 编译器"
   echo "Ubuntu/Debian: sudo apt install -y protobuf-compiler"
   echo "macOS: brew install protobuf"
   exit 1
 fi
+
+# 检查 protoc 版本
+PROTOC_VERSION=$(${PROTOC_BIN} --version | awk '{print $2}')
+echo "🔍 正在使用 protoc 版本：${PROTOC_VERSION}"
 
 # 输出路径
 OUTPUT_DIR="./lunaris/proto"
@@ -22,7 +31,7 @@ OUTPUT_DIR="./lunaris/proto"
 mkdir -p "${OUTPUT_DIR}"
 
 # 编译 proto 文件
-PROTOC_CMD="protoc -I=proto"
+PROTOC_CMD="${PROTOC_BIN} -I=proto"
 
 # 支持的 proto 文件列表（可扩展）
 PROTO_FILES=(
