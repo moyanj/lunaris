@@ -1,158 +1,168 @@
-# Lunaris Knowledge Base
+# Lunaris 知识库
 
-**Generated:** 2026-04-17
-**Commit:** 96f409d
-**Branch:** main
+**生成时间：** 2026-04-17
+**提交版本：** 96f409d
+**分支：** main
 
-## OVERVIEW
+## 概述
 
-Distributed WASM executor with Python services (FastAPI master + Python worker + async/sync SDK) and a high-performance Rust worker. Uses WebSocket for worker communication, Protobuf for protocol, and wasmtime for WASM execution.
+分布式WASM执行器，包含Python服务（FastAPI主节点 + Python工作节点 + 异步/同步SDK）和高性能Rust工作节点。使用WebSocket进行工作节点通信，Protobuf协议，wasmtime执行WASM。
 
-## STRUCTURE
+## 项目结构
 
 ```
 lunaris/
-├── master/     # FastAPI task scheduler + WebSocket endpoint
-├── worker/     # Python worker (multiprocessing WASM executor)
-├── client/     # SDK (LunarisClient async, SyncLunarisClient)
-├── runtime/    # WASM sandbox + ExecutionLimits
-├── proto/      # Generated protobuf (DO NOT EDIT)
-└── cli/        # argparse entry point
-rust-worker/    # Rust worker (wasmtime + mimalloc)
-proto/          # Protobuf source definitions
-testwasm/       # Sample WASM project (not tests)
+├── master/     # FastAPI任务调度器 + WebSocket端点
+├── worker/     # Python工作节点（多进程WASM执行器）
+├── client/     # SDK（LunarisClient异步，SyncLunarisClient同步）
+├── runtime/    # WASM沙箱 + ExecutionLimits
+├── proto/      # 生成的protobuf文件（禁止编辑）
+└── cli/        # argparse入口点
+rust-worker/    # Rust工作节点（wasmtime + mimalloc）
+proto/          # Protobuf源定义
+testwasm/       # 示例WASM项目（非测试）
 ```
 
-## WHERE TO LOOK
+## 代码导航
 
-| Task | Location | Notes |
-|------|----------|-------|
-| Add REST endpoint | `lunaris/master/api.py` | FastAPI router, requires auth token |
-| Modify task scheduling | `lunaris/master/manager.py` | TaskManager, WorkerManager classes |
-| Worker connection logic | `lunaris/worker/main.py` | WebSocket client, heartbeat loop |
-| WASM execution limits | `lunaris/runtime/limits.py` | ExecutionLimits dataclass |
-| WASM sandbox engine | `lunaris/runtime/engine.py` | WasmSandbox class, wasmtime wrapper |
-| Client SDK async | `lunaris/client/client.py` | LunarisClient, submit_task() |
-| Client SDK sync | `lunaris/client/sync.py` | SyncLunarisClient wrapper |
-| Rust worker core | `rust-worker/src/core.rs` | Worker struct, WebSocket + task dispatch |
-| Rust WASM engine | `rust-worker/src/engine.rs` | Runner, run_wasm(), resource limits |
-| Protobuf protocol | `proto/*.proto` | Edit source, run build.sh |
-| CLI commands | `lunaris/cli/main.py` | master/worker subcommands |
+| 任务 | 位置 | 说明 |
+|------|------|------|
+| 添加REST端点 | `lunaris/master/api.py` | FastAPI路由，需要认证令牌 |
+| 修改任务调度 | `lunaris/master/manager.py` | TaskManager, WorkerManager类 |
+| 工作节点连接逻辑 | `lunaris/worker/main.py` | WebSocket客户端，心跳循环 |
+| WASM执行限制 | `lunaris/runtime/limits.py` | ExecutionLimits数据类 |
+| WASM沙箱引擎 | `lunaris/runtime/engine.py` | WasmSandbox类，wasmtime封装 |
+| 客户端SDK异步 | `lunaris/client/client.py` | LunarisClient, submit_task() |
+| 客户端SDK同步 | `lunaris/client/sync.py` | SyncLunarisClient封装 |
+| Rust工作节点核心 | `rust-worker/src/core.rs` | Worker结构体，WebSocket + 任务分发 |
+| Rust WASM引擎 | `rust-worker/src/engine.rs` | Runner, run_wasm(), 资源限制 |
+| Protobuf协议 | `proto/*.proto` | 编辑源文件，运行build.sh |
+| CLI命令 | `lunaris/cli/main.py` | master/worker子命令 |
 
-## CODE MAP
+## 代码地图
 
-### Python Entry Points
+### Python入口点
 
-| Symbol | Type | Location | Role |
-|--------|------|----------|------|
-| `main()` | Function | `lunaris/cli/main.py:124` | CLI entry, argparse |
-| `Worker` | Class | `lunaris/worker/main.py:32` | Python worker node |
-| `Runner` | Class | `lunaris/worker/core.py:63` | WASM executor (ProcessPool) |
-| `TaskManager` | Class | `lunaris/master/manager.py:154` | Priority queue + task tracking |
-| `WorkerManager` | Class | `lunaris/master/manager.py:69` | Worker registration + heartbeat |
-| `LunarisClient` | Class | `lunaris/client/client.py:27` | Async SDK |
-| `SyncLunarisClient` | Class | `lunaris/client/sync.py:12` | Sync SDK wrapper |
-| `WasmSandbox` | Class | `lunaris/runtime/engine.py:21` | WASM execution wrapper |
-| `ExecutionLimits` | Class | `lunaris/runtime/limits.py:18` | Resource limit config |
-| `IDGenerator` | Class | `lunaris/utils.py:98` | Snowflake ID generator |
+| 符号 | 类型 | 位置 | 用途 |
+|------|------|------|------|
+| `main()` | 函数 | `lunaris/cli/main.py:124` | CLI入口，argparse |
+| `Worker` | 类 | `lunaris/worker/main.py:32` | Python工作节点 |
+| `Runner` | 类 | `lunaris/worker/core.py:63` | WASM执行器（ProcessPool） |
+| `TaskManager` | 类 | `lunaris/master/manager.py:154` | 优先级队列 + 任务跟踪 |
+| `WorkerManager` | 类 | `lunaris/master/manager.py:69` | 工作节点注册 + 心跳 |
+| `LunarisClient` | 类 | `lunaris/client/client.py:27` | 异步SDK |
+| `SyncLunarisClient` | 类 | `lunaris/client/sync.py:12` | 同步SDK封装 |
+| `WasmSandbox` | 类 | `lunaris/runtime/engine.py:21` | WASM执行封装 |
+| `ExecutionLimits` | 类 | `lunaris/runtime/limits.py:18` | 资源限制配置 |
+| `IDGenerator` | 类 | `lunaris/utils.py:98` | Snowflake ID生成器 |
 
-### Rust Entry Points
+### Rust入口点
 
-| Symbol | Type | Location | Role |
-|--------|------|----------|------|
-| `Worker` | Struct | `rust-worker/src/core.rs:15` | Worker node (WebSocket + heartbeat) |
-| `Runner` | Struct | `rust-worker/src/engine.rs:18` | WASM executor pool |
-| `run_wasm()` | Function | `rust-worker/src/engine.rs:126` | WASM execution core |
-| `main()` | Function | `rust-worker/src/main.rs:16` | Rust worker entry |
+| 符号 | 类型 | 位置 | 用途 |
+|------|------|------|------|
+| `Worker` | 结构体 | `rust-worker/src/core.rs:15` | 工作节点（WebSocket + 心跳） |
+| `Runner` | 结构体 | `rust-worker/src/engine.rs:18` | WASM执行器池 |
+| `run_wasm()` | 函数 | `rust-worker/src/engine.rs:126` | WASM执行核心 |
+| `main()` | 函数 | `rust-worker/src/main.rs:16` | Rust工作节点入口 |
 
-## CONVENTIONS
+## 开发规范
 
 ### Python
-- **Type hints**: Required for public APIs, optional internally
-- **Naming**: snake_case (functions/vars), PascalCase (classes)
-- **Protobuf**: NEVER edit `lunaris/proto/*_pb2.py` - edit `proto/*.proto` then `./proto/build.sh`
-- **Imports**: Absolute paths preferred (`from lunaris.client import LunarisClient`)
+- **类型注解**：公共API必须提供，内部可选
+- **命名**：snake_case（函数/变量），PascalCase（类）
+- **Protobuf**：禁止编辑 `lunaris/proto/*_pb2.py` - 编辑 `proto/*.proto` 后运行 `./proto/build.sh`
+- **导入**：优先使用绝对路径（`from lunaris.client import LunarisClient`）
 
 ### Rust
-- **Formatting**: Run `cargo fmt` before commit
-- **Edition**: 2024 in Cargo.toml (should be 2021 - needs fix)
-- **Memory**: Uses `mimalloc` global allocator
-- **Async**: tokio runtime, `spawn_blocking` for WASM execution
+- **格式化**：提交前运行 `cargo fmt`
+- **版本**：Cargo.toml 中 `edition = "2024"`（应为2021 - 需要修复）
+- **内存**：使用 `mimalloc` 全局分配器
+- **异步**：tokio运行时，WASM执行使用 `spawn_blocking`
 
-### Commits
-- Style: Short imperative + optional scope (`feat(cli):`, `fix(master):`)
-- PRs: Describe behavior change, list validation commands
+### 提交
+- 风格：简短祈使句 + 可选作用域（`feat(cli):`、`fix(master):`）
+- PR：描述行为变更，列出验证命令
 
-## ANTI-PATTERNS (THIS PROJECT)
+## 反模式（本项目禁止）
 
-### NEVER Do These
+### 绝对禁止
 
-1. **Hard-code tokens**: Use `WORKER_TOKEN` / `CLIENT_TOKEN` env vars
+1. **硬编码令牌**：必须使用环境变量
    ```python
-   # FORBIDDEN
+   # 禁止
    token = "my-secret-value"
-   # REQUIRED
+   # 必须
    token = os.environ.get("WORKER_TOKEN")
    ```
 
-2. **Edit generated protobuf**: Files in `lunaris/proto/*_pb2.py` are auto-generated
-   - Fix: Edit `proto/*.proto` → run `./proto/build.sh`
+2. **编辑生成的protobuf**：`lunaris/proto/*_pb2.py` 是自动生成的
+   - 解决：编辑 `proto/*.proto` → 运行 `./proto/build.sh`
 
-3. **Modify ExecutionLimits defaults carelessly**: Affects worker isolation and safety
-   - `max_fuel`, `max_memory_bytes`, `max_module_bytes` impact resource protection
+3. **随意修改ExecutionLimits默认值**：影响工作节点隔离和安全
+   - `max_fuel`、`max_memory_bytes`、`max_module_bytes` 影响资源保护
 
-4. **Run tests without master/worker**: Integration tests require live services
-   - Current tests (`test_localhost_*.py`) need `ws://localhost:8000`
+4. **无服务运行测试**：集成测试需要活跃服务
+   - 当前测试（`test_localhost_*.py`）需要 `ws://localhost:8000`
 
-## UNIQUE STYLES
+## 独特设计
 
-### Dual Worker Architecture
-- Python worker: `lunaris/worker/` - multiprocessing execution
-- Rust worker: `rust-worker/` - high-performance, wasmtime + mimalloc
-- Both connect to same master via WebSocket
+### 双工作节点架构（Rust工作节点是一等公民）
+- Python工作节点：`lunaris/worker/` - 多进程执行
+- **Rust工作节点：`rust-worker/` - 高性能，wasmtime + mimalloc** ⭐ **一等公民**
+- Rust工作节点不是实验性功能，而是与Python工作节点同等重要的生产级组件
+- 两者通过相同WebSocket协议连接master，可互换使用
+- Rust工作节点提供更高性能，适合CPU密集型和高频调用场景
 
-### Protocol Layer
-- Envelope wrapper with zstd compression (`lunaris/utils.py:proto2bytes`)
-- Message type routing via `MESSAGE_TYPE_MAP`
+### 持久化事件驱动调度（新功能）
+- `StateStore`抽象层支持可插拔后端（文件、数据库等）
+- `FileStateStore`实现：快照+事件日志持久化
+- 事件溯源架构：`TaskEvent`记录所有状态变更
+- 支持幂等性：`idempotency_key`防止重复提交
+- 增量同步：基于序列号的事件订阅
 
-### Client SDK Design
-- Async `LunarisClient` + sync `SyncLunarisClient` with identical API
-- Source compilation helpers: `submit_c()`, `submit_rust()`, `submit_go()`, `submit_zig()`
+### 协议层
+- 信封包装 + zstd压缩（`lunaris/utils.py:proto2bytes`）
+- 消息类型路由通过 `MESSAGE_TYPE_MAP`
 
-## COMMANDS
+### 客户端SDK设计
+- 异步 `LunarisClient` + 同步 `SyncLunarisClient`，API完全一致
+- 请求ID匹配机制确保可靠的任务创建跟踪
+- 源码编译助手：`submit_c()`、`submit_rust()`、`submit_go()`、`submit_zig()`
 
-### Development
+## 命令
+
+### 开发
 ```bash
-# Python - install deps
+# Python - 安装依赖
 uv sync
 
-# Python - run master
+# Python - 运行主节点
 uv run python -m lunaris master --host 127.0.0.1 --port 8000
 
-# Python - run worker
+# Python - 运行工作节点
 uv run python -m lunaris worker --master ws://127.0.0.1:8000 --token $WORKER_TOKEN
 
-# Rust - build worker
+# Rust - 构建工作节点
 cd rust-worker && cargo build --release
 
-# Protobuf - regenerate Python bindings
+# Protobuf - 重新生成Python绑定
 ./proto/build.sh
 ```
 
-### Environment Variables
+### 环境变量
 ```bash
-WORKER_TOKEN           # Worker authentication
-LUNARIS_WORKER_*       # Execution limits overrides
+WORKER_TOKEN           # 工作节点认证
+LUNARIS_WORKER_*       # 执行限制覆盖
 ```
 
-### Prerequisites
-- `protoc` (protobuf compiler) - required for proto generation
-- Python >=3.9, Rust toolchain
+### 前置条件
+- `protoc`（protobuf编译器）- 生成protobuf必需
+- Python >=3.9，Rust工具链
 
-## NOTES
+## 注意事项
 
-- **No CI configured**: Missing `.github/workflows/`
-- **No test directory**: Tests scattered at root (`test_localhost_*.py`)
-- **Rust edition typo**: Cargo.toml has `edition = "2024"` (non-existent, should be "2021")
-- **testwasm purpose**: Sample WASM project, not formal test suite
-- See subdirectory AGENTS.md for module-specific details
+- **无CI配置**：缺少 `.github/workflows/`
+- **无测试目录**：测试文件散落在根目录（`test_localhost_*.py`）
+- **Rust版本错误**：Cargo.toml 中 `edition = "2024"`（不存在，应为"2021"）
+- **testwasm用途**：示例WASM项目，非正式测试套件
+- 参见子目录AGENTS.md了解模块特定细节

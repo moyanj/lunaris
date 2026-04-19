@@ -1,48 +1,48 @@
-# Runtime Module - WASM Execution Layer
+# 运行时模块 - WASM执行层
 
-**Parent:** See root AGENTS.md for project overview
+**父级：** 参见根目录AGENTS.md了解项目概览
 
-## OVERVIEW
+## 概述
 
-WASM execution sandbox: wasmtime wrapper, WASI environment, execution limits (fuel, memory, module size).
+WASM执行沙箱：wasmtime封装，WASI环境，执行限制（燃料、内存、模块大小）。
 
-## WHERE TO LOOK
+## 代码导航
 
-| Task | File | Key Symbols |
-|------|------|-------------|
-| WASM execution | `engine.py:21` | `WasmSandbox.run`, wasmtime Store/Module/Linker |
-| Resource limits | `limits.py:18` | `ExecutionLimits`, `clamp()` |
-| Limit resolution | `limits.py:76` | `_resolve_limit(requested, default, maximum)` |
-| WASI config | `engine.py:59` | `WasiConfig`, env/argv/stdout_file |
-| Result format | `engine.py:12` | `WasmResult` dataclass |
+| 任务 | 文件 | 关键符号 |
+|------|------|----------|
+| WASM执行 | `engine.py:21` | `WasmSandbox.run`, wasmtime Store/Module/Linker |
+| 资源限制 | `limits.py:18` | `ExecutionLimits`, `clamp()` |
+| 限制解析 | `limits.py:76` | `_resolve_limit(requested, default, maximum)` |
+| WASI配置 | `engine.py:59` | `WasiConfig`, env/argv/stdout_file |
+| 结果格式 | `engine.py:12` | `WasmResult` 数据类 |
 
-## CONVENTIONS
+## 开发约定
 
-### WASM Execution Flow
+### WASM执行流程
 ```
 WasmSandbox(limits) → run(code, args, entry) → Module → Linker → Store → Instance → main_func()
 ```
 
-### Limit Semantics
-- **0 = unlimited**: Non-zero values enforce limits
-- **Three-layer resolution**: `requested → default → maximum`
-  - If requested ≤ 0, use default
-  - If maximum > 0 and (requested > maximum), use maximum
+### 限制语义
+- **0 = 无限制**：非零值强制限制
+- **三层解析**：`requested → default → maximum`
+  - 如果 requested ≤ 0，使用 default
+  - 如果 maximum > 0 且 (requested > maximum)，使用 maximum
 
-### WASI Setup
-- `WasiConfig.env` - environment variables dict
-- `WasiConfig.argv` - command line args list
-- Stdout/stderr via temp files (`tempfile.mkstemp`)
+### WASI配置
+- `WasiConfig.env` - 环境变量字典
+- `WasiConfig.argv` - 命令行参数列表
+- 标准输出/错误通过临时文件（`tempfile.mkstemp`）
 
-### Fuel-based Execution
-- `Config.consume_fuel = True` if `max_fuel > 0`
-- `store.set_fuel(max_fuel)` before instantiation
-- Out-of-fuel traps execution
+### 燃料计量执行
+- `Config.consume_fuel = True` 如果 `max_fuel > 0`
+- `store.set_fuel(max_fuel)` 在实例化前设置
+- 燃料耗尽会中断执行
 
-## ANTI-PATTERNS (THIS MODULE)
+## 反模式（本模块）
 
-1. **Skip limit clamp**: Always clamp user limits against defaults and maximums
-2. **Large modules**: Check `max_module_bytes` before instantiation
-3. **Temp file cleanup**: Temp stdout/stderr are auto-deleted; don't rely on them persisting
-4. **Reuse Store**: Each `run()` creates new Store - don't reuse
-5. **Ignore fuel trap**: Low fuel may cause incomplete execution
+1. **跳过限制钳制**：必须对用户限制进行默认值和最大值钳制
+2. **大模块**：实例化前检查 `max_module_bytes`
+3. **临时文件清理**：临时stdout/stderr自动删除，不要依赖它们持久化
+4. **重用Store**：每次 `run()` 创建新Store - 不要重用
+5. **忽略燃料陷阱**：低燃料可能导致执行不完整

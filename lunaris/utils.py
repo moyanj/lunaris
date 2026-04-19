@@ -104,7 +104,7 @@ class IDGenerator:
     ID_SHIFT = SEQUENCE_BITS
     TIMESTAMP_SHIFT = SEQUENCE_BITS + ID_BITS
     SEQUENCE_MASK = -1 ^ (-1 << SEQUENCE_BITS)
-    EPOCH = 1718766000000
+    EPOCH = 1718766000000  # Firefly Release date
 
     def __init__(self, id):
         if not (0 <= id <= self.MAX_ID):
