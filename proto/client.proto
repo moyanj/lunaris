@@ -12,6 +12,7 @@ message CreateTask {
   common.WasiEnv wasi_env = 6; // WASI环境设置
   common.ExecutionLimits execution_limits = 7; // 执行资源限制
   string request_id = 8;       // 客户端请求ID，用于匹配异步创建响应
+  string idempotency_key = 9;  // 幂等键，相同 client + key 返回同一任务
 }
 
 message TaskCreated {

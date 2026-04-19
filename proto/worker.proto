@@ -29,6 +29,8 @@ message ControlCommand {
   enum CommandType {
     HEARTBEAT = 0;
     SHUTDOWN = 1;
+    CANCEL_TASK = 2;
+    SET_DRAIN = 3;
   }
 }
 

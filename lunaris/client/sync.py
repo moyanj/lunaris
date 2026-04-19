@@ -65,6 +65,7 @@ class SyncLunarisClient:
         priority: int = 0,
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         """
         提交WASM任务
@@ -89,6 +90,7 @@ class SyncLunarisClient:
                 priority,
                 wasi_env=wasi_env,
                 execution_limits=execution_limits,
+                idempotency_key=idempotency_key,
             )
 
         return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
@@ -103,6 +105,7 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         if not self._connected:
             raise RuntimeError("Client not connected")
@@ -117,6 +120,7 @@ class SyncLunarisClient:
                 wasi_env=wasi_env,
                 execution_limits=execution_limits,
                 compile_options=compile_options,
+                idempotency_key=idempotency_key,
             )
 
         return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
@@ -130,6 +134,7 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return self.submit_source(
             "c",
@@ -140,6 +145,7 @@ class SyncLunarisClient:
             wasi_env=wasi_env,
             execution_limits=execution_limits,
             compile_options=compile_options,
+            idempotency_key=idempotency_key,
         )
 
     def submit_cxx(
@@ -151,6 +157,7 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return self.submit_source(
             "cxx",
@@ -161,6 +168,7 @@ class SyncLunarisClient:
             wasi_env=wasi_env,
             execution_limits=execution_limits,
             compile_options=compile_options,
+            idempotency_key=idempotency_key,
         )
 
     def submit_zig(
@@ -172,6 +180,7 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return self.submit_source(
             "zig",
@@ -182,6 +191,7 @@ class SyncLunarisClient:
             wasi_env=wasi_env,
             execution_limits=execution_limits,
             compile_options=compile_options,
+            idempotency_key=idempotency_key,
         )
 
     def submit_rust(
@@ -193,6 +203,7 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return self.submit_source(
             "rust",
@@ -203,6 +214,7 @@ class SyncLunarisClient:
             wasi_env=wasi_env,
             execution_limits=execution_limits,
             compile_options=compile_options,
+            idempotency_key=idempotency_key,
         )
 
     def submit_go(
@@ -214,6 +226,7 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return self.submit_source(
             "go",
@@ -224,6 +237,7 @@ class SyncLunarisClient:
             wasi_env=wasi_env,
             execution_limits=execution_limits,
             compile_options=compile_options,
+            idempotency_key=idempotency_key,
         )
 
     def get_task_result(self, task_id: str) -> Optional[Dict[str, Any]]:

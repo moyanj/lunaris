@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import secrets
 import platform
@@ -70,6 +71,8 @@ class Worker:
             max_execution_limits=self.max_execution_limits,
         )
         self.num_running = 0
+        self.drain_enabled = False
+        self.cancelled_tasks: set[str] = set()
 
     async def connect(self) -> None:
         """建立与Master的WebSocket连接"""
@@ -142,6 +145,17 @@ class Worker:
         if not self.ws:
             raise ConnectionError("WebSocket未连接")
 
+        # worker 无法强杀进程池中的任务时，取消命令退化为“结果收敛为已取消”。
+        if task_id in self.cancelled_tasks:
+            result = WasmResult(
+                result="",
+                stdout=result.stdout,
+                stderr=b"task cancelled",
+                time=result.time,
+                succeeded=False,
+            )
+            self.cancelled_tasks.discard(task_id)
+
         proto = TaskResult(
             task_id=task_id,
             result=str(result.result),
@@ -162,6 +176,19 @@ class Worker:
         logger.info(f"Received task: {task.task_id}")
         if not self.ws:
             raise ConnectionError("WebSocket连接未建立")
+        if self.drain_enabled or task.task_id in self.cancelled_tasks:
+            await self.report_result(
+                WasmResult(
+                    result="",
+                    stdout=b"",
+                    stderr=b"task cancelled",
+                    time=0,
+                    succeeded=False,
+                ),
+                task.task_id,
+                task.attempt,
+            )
+            return
         await self.ws.send(
             proto2bytes(
                 TaskAccepted(
@@ -174,6 +201,31 @@ class Worker:
         self.num_running += 1
         logger.debug(f"Number of running tasks:{self.num_running}")
         self.runner.submit(task)
+
+    async def handle_control_command(self, command: ControlCommand) -> None:
+        """处理 master 下发的控制命令。"""
+        if command.type == ControlCommand.CommandType.SHUTDOWN:
+            self.running = False
+            return
+
+        if command.type == ControlCommand.CommandType.SET_DRAIN:
+            try:
+                payload = json.loads(command.data or "{}")
+            except json.JSONDecodeError:
+                payload = {}
+            self.drain_enabled = bool(payload.get("enabled", False))
+            logger.info("Drain mode set to {}", self.drain_enabled)
+            return
+
+        if command.type == ControlCommand.CommandType.CANCEL_TASK:
+            try:
+                payload = json.loads(command.data or "{}")
+            except json.JSONDecodeError:
+                payload = {}
+            task_id = payload.get("task_id")
+            if task_id:
+                self.cancelled_tasks.add(task_id)
+                logger.info("Received cancel request for task {}", task_id)
 
     async def run(self) -> None:
         """Worker主循环"""
@@ -191,6 +243,8 @@ class Worker:
                 proto = bytes2proto(message)
                 if isinstance(proto, Task):
                     await self.handle_task(proto)
+                elif isinstance(proto, ControlCommand):
+                    await self.handle_control_command(proto)
 
         except (ConnectionError, asyncio.CancelledError) as e:
             import traceback

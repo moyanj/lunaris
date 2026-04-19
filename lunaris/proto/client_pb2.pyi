@@ -8,7 +8,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class CreateTask(_message.Message):
-    __slots__ = ("wasm_module", "args", "entry", "priority", "wasi_env", "execution_limits", "request_id")
+    __slots__ = ("wasm_module", "args", "entry", "priority", "wasi_env", "execution_limits", "request_id", "idempotency_key")
     WASM_MODULE_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
     ENTRY_FIELD_NUMBER: _ClassVar[int]
@@ -16,6 +16,7 @@ class CreateTask(_message.Message):
     WASI_ENV_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_LIMITS_FIELD_NUMBER: _ClassVar[int]
     REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
     wasm_module: bytes
     args: str
     entry: str
@@ -23,7 +24,8 @@ class CreateTask(_message.Message):
     wasi_env: _common_pb2.WasiEnv
     execution_limits: _common_pb2.ExecutionLimits
     request_id: str
-    def __init__(self, wasm_module: _Optional[bytes] = ..., args: _Optional[str] = ..., entry: _Optional[str] = ..., priority: _Optional[int] = ..., wasi_env: _Optional[_Union[_common_pb2.WasiEnv, _Mapping]] = ..., execution_limits: _Optional[_Union[_common_pb2.ExecutionLimits, _Mapping]] = ..., request_id: _Optional[str] = ...) -> None: ...
+    idempotency_key: str
+    def __init__(self, wasm_module: _Optional[bytes] = ..., args: _Optional[str] = ..., entry: _Optional[str] = ..., priority: _Optional[int] = ..., wasi_env: _Optional[_Union[_common_pb2.WasiEnv, _Mapping]] = ..., execution_limits: _Optional[_Union[_common_pb2.ExecutionLimits, _Mapping]] = ..., request_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class TaskCreated(_message.Message):
     __slots__ = ("task_id", "request_id")

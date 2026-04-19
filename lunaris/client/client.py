@@ -59,6 +59,7 @@ class LunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         """
         提交WASM任务
@@ -89,6 +90,7 @@ class LunarisClient:
             wasi_env=wasi_env.__dict__ if wasi_env else {},
             execution_limits=execution_limits.to_dict() if execution_limits else {},
             request_id=request_id,
+            idempotency_key=idempotency_key or "",
         )
 
         # 创建未来对象来等待任务创建响应
@@ -120,6 +122,7 @@ class LunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         wasm_module = compile_source(language, source_code, compile_options)
         return await self.submit_task(
@@ -130,6 +133,7 @@ class LunarisClient:
             wasi_env=wasi_env,
             execution_limits=execution_limits,
             callback=callback,
+            idempotency_key=idempotency_key,
         )
 
     async def submit_c(
@@ -142,6 +146,7 @@ class LunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return await self.submit_source(
             "c",
@@ -153,6 +158,7 @@ class LunarisClient:
             execution_limits=execution_limits,
             compile_options=compile_options,
             callback=callback,
+            idempotency_key=idempotency_key,
         )
 
     async def submit_cxx(
@@ -165,6 +171,7 @@ class LunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return await self.submit_source(
             "cxx",
@@ -176,6 +183,7 @@ class LunarisClient:
             execution_limits=execution_limits,
             compile_options=compile_options,
             callback=callback,
+            idempotency_key=idempotency_key,
         )
 
     async def submit_zig(
@@ -188,6 +196,7 @@ class LunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return await self.submit_source(
             "zig",
@@ -199,6 +208,7 @@ class LunarisClient:
             execution_limits=execution_limits,
             compile_options=compile_options,
             callback=callback,
+            idempotency_key=idempotency_key,
         )
 
     async def submit_rust(
@@ -211,6 +221,7 @@ class LunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return await self.submit_source(
             "rust",
@@ -222,6 +233,7 @@ class LunarisClient:
             execution_limits=execution_limits,
             compile_options=compile_options,
             callback=callback,
+            idempotency_key=idempotency_key,
         )
 
     async def submit_go(
@@ -234,6 +246,7 @@ class LunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
     ) -> str:
         return await self.submit_source(
             "go",
@@ -245,6 +258,7 @@ class LunarisClient:
             execution_limits=execution_limits,
             compile_options=compile_options,
             callback=callback,
+            idempotency_key=idempotency_key,
         )
 
     async def submit_task_many(
@@ -433,22 +447,32 @@ class LunarisClient:
         Raises:
             asyncio.TimeoutError: 如果超时
         """
-        if not self.websocket:
-            raise RuntimeError("Client not connected")
+        deadline = None if timeout is None else asyncio.get_running_loop().time() + timeout
 
-        future = asyncio.Future()
+        while True:
+            status = await self.get_task_status(task_id)
+            if status is None:
+                raise RuntimeError("Task not found")
 
-        async def callback(result):
-            if not future.done():
-                future.set_result(result)
+            task_status = status.get("status")
+            if task_status in {"succeeded", "failed", "cancelled"}:
+                result = await self.get_task_result(task_id)
+                if result is None:
+                    raise RuntimeError("Task reached terminal state without persisted result")
+                return TaskResult(
+                    task_id=task_id,
+                    result=result.get("result", ""),
+                    stdout=result.get("stdout", "").encode("utf-8"),
+                    stderr=result.get("stderr", "").encode("utf-8"),
+                    time=result.get("time", 0),
+                    succeeded=bool(result.get("succeeded", False)),
+                    attempt=result.get("attempt", 0),
+                )
 
-        self._task_callbacks[task_id] = callback
+            if deadline is not None and asyncio.get_running_loop().time() >= deadline:
+                raise asyncio.TimeoutError()
 
-        try:
-            return await asyncio.wait_for(future, timeout)
-        except asyncio.TimeoutError:
-            self._task_callbacks.pop(task_id, None)
-            raise
+            await asyncio.sleep(0.2)
 
     async def close(self):
         """关闭客户端连接"""

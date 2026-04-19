@@ -1,6 +1,8 @@
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
 use prost::Message as _;
+use serde_json::Value;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, mpsc};
@@ -20,6 +22,8 @@ pub struct Worker {
     node_id: String,
     running: Arc<Mutex<bool>>,
     num_running: Arc<Mutex<usize>>,
+    drain_enabled: Arc<Mutex<bool>>,
+    cancelled_tasks: Arc<Mutex<HashSet<String>>>,
     runner: Option<Runner>,
     default_execution_limits: common::ExecutionLimits,
     max_execution_limits: common::ExecutionLimits,
@@ -42,6 +46,8 @@ impl Worker {
             node_id: String::new(),
             running: Arc::new(Mutex::new(false)),
             num_running: Arc::new(Mutex::new(0)),
+            drain_enabled: Arc::new(Mutex::new(false)),
+            cancelled_tasks: Arc::new(Mutex::new(HashSet::new())),
             runner: None,
             default_execution_limits,
             max_execution_limits,
@@ -183,6 +189,28 @@ impl Worker {
             >,
         >,
     ) -> Result<()> {
+        // drain 模式或已收到取消请求时，不再接受新任务，直接返回取消结果。
+        if *self.drain_enabled.lock().await
+            || self.cancelled_tasks.lock().await.contains(&task.task_id)
+        {
+            let result = WasmResult {
+                result: String::new(),
+                stdout: vec![],
+                stderr: b"task cancelled".to_vec(),
+                time: 0.0,
+                succeeded: false,
+            };
+            let mut write_guard = write.lock().await;
+            Self::report_result_static(
+                &mut write_guard,
+                result,
+                task.task_id.clone(),
+                task.attempt,
+            )
+            .await?;
+            return Ok(());
+        }
+
         let mut write_guard = write.lock().await;
         Self::report_task_accepted_static(
             &mut write_guard,
@@ -202,6 +230,27 @@ impl Worker {
             runner.submit(task).await?;
         }
 
+        Ok(())
+    }
+
+    async fn handle_control_command(&self, command: worker::ControlCommand) -> Result<()> {
+        match worker::control_command::CommandType::try_from(command.r#type) {
+            Ok(worker::control_command::CommandType::Shutdown) => {
+                *self.running.lock().await = false;
+            }
+            Ok(worker::control_command::CommandType::SetDrain) => {
+                let enabled = parse_bool_flag(&command.data, "enabled");
+                *self.drain_enabled.lock().await = enabled;
+                info!("Drain mode set to {}", enabled);
+            }
+            Ok(worker::control_command::CommandType::CancelTask) => {
+                if let Some(task_id) = parse_string_flag(&command.data, "task_id") {
+                    self.cancelled_tasks.lock().await.insert(task_id.clone());
+                    info!("Received cancel request for task {}", task_id);
+                }
+            }
+            _ => {}
+        }
         Ok(())
     }
 
@@ -254,13 +303,25 @@ impl Worker {
         let write_arc_clone = Arc::clone(&write_arc);
         let running_clone = Arc::clone(&self.running);
         let num_running_clone = Arc::clone(&self.num_running);
+        let cancelled_tasks_clone = Arc::clone(&self.cancelled_tasks);
         tokio::spawn(async move {
             while *running_clone.lock().await {
                 if let Some((result, task_id, attempt)) = result_rx.recv().await {
+                    // Rust worker 当前也采用 best-effort cancel：结果回传前再收敛一次终态。
+                    let result = if cancelled_tasks_clone.lock().await.remove(&task_id) {
+                        WasmResult {
+                            result: String::new(),
+                            stdout: result.stdout,
+                            stderr: b"task cancelled".to_vec(),
+                            time: result.time,
+                            succeeded: false,
+                        }
+                    } else {
+                        result
+                    };
                     let mut write_guard = write_arc_clone.lock().await;
                     if let Err(e) =
-                        Self::report_result_static(&mut write_guard, result, task_id, attempt)
-                            .await
+                        Self::report_result_static(&mut write_guard, result, task_id, attempt).await
                     {
                         error!("Failed to report result: {}", e);
                     }
@@ -279,14 +340,26 @@ impl Worker {
                 match message {
                     Ok(Message::Binary(data)) => {
                         if let Ok((proto_message, tp)) = proto::from_bytes(&data) {
-                            if let MessageType::Task = tp {
-                                if let Ok(task) = worker::Task::decode(proto_message.as_ref()) {
-                                    if let Err(e) =
-                                        self.handle_task(task, Arc::clone(&write_arc)).await
-                                    {
-                                        error!("Failed to handle task: {}", e);
+                            match tp {
+                                MessageType::Task => {
+                                    if let Ok(task) = worker::Task::decode(proto_message.as_ref()) {
+                                        if let Err(e) =
+                                            self.handle_task(task, Arc::clone(&write_arc)).await
+                                        {
+                                            error!("Failed to handle task: {}", e);
+                                        }
                                     }
                                 }
+                                MessageType::ControlCommand => {
+                                    if let Ok(command) =
+                                        worker::ControlCommand::decode(proto_message.as_ref())
+                                    {
+                                        if let Err(e) = self.handle_control_command(command).await {
+                                            error!("Failed to handle control command: {}", e);
+                                        }
+                                    }
+                                }
+                                _ => {}
                             }
                         }
                     }
@@ -363,4 +436,20 @@ impl Worker {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
+}
+
+fn parse_bool_flag(data: &str, key: &str) -> bool {
+    serde_json::from_str::<Value>(data)
+        .ok()
+        .and_then(|value| value.get(key).and_then(|item| item.as_bool()))
+        .unwrap_or(false)
+}
+
+fn parse_string_flag(data: &str, key: &str) -> Option<String> {
+    serde_json::from_str::<Value>(data).ok().and_then(|value| {
+        value
+            .get(key)
+            .and_then(|item| item.as_str())
+            .map(str::to_string)
+    })
 }

@@ -43,8 +43,12 @@ class ControlCommand(_message.Message):
         __slots__ = ()
         HEARTBEAT: _ClassVar[ControlCommand.CommandType]
         SHUTDOWN: _ClassVar[ControlCommand.CommandType]
+        CANCEL_TASK: _ClassVar[ControlCommand.CommandType]
+        SET_DRAIN: _ClassVar[ControlCommand.CommandType]
     HEARTBEAT: ControlCommand.CommandType
     SHUTDOWN: ControlCommand.CommandType
+    CANCEL_TASK: ControlCommand.CommandType
+    SET_DRAIN: ControlCommand.CommandType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
     type: ControlCommand.CommandType

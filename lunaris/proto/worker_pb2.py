@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from lunaris.proto import common_pb2 as common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cworker.proto\x12\x0elunaris.worker\x1a\x0c\x63ommon.proto\"\xd2\x01\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bwasm_module\x18\x02 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\r\n\x05\x65ntry\x18\x04 \x01(\t\x12\x10\n\x08priority\x18\x05 \x01(\r\x12)\n\x08wasi_env\x18\x06 \x01(\x0b\x32\x17.lunaris.common.WasiEnv\x12\x39\n\x10\x65xecution_limits\x18\x07 \x01(\x0b\x32\x1f.lunaris.common.ExecutionLimits\x12\x0f\n\x07\x61ttempt\x18\x08 \x01(\r\"A\n\x0cTaskAccepted\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x03 \x01(\r\"\x84\x01\n\x0e\x43ontrolCommand\x12\x38\n\x04type\x18\x01 \x01(\x0e\x32*.lunaris.worker.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"*\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\"\x8a\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.lunaris.worker.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\r\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"k\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04\x61rch\x18\x02 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\r\x12\x13\n\x0bmemory_size\x18\x04 \x01(\x04\x12\r\n\x05token\x18\x05 \x01(\t\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"!\n\x0eUnregisterNode\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cworker.proto\x12\x0elunaris.worker\x1a\x0c\x63ommon.proto\"\xd2\x01\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bwasm_module\x18\x02 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x03 \x01(\t\x12\r\n\x05\x65ntry\x18\x04 \x01(\t\x12\x10\n\x08priority\x18\x05 \x01(\r\x12)\n\x08wasi_env\x18\x06 \x01(\x0b\x32\x17.lunaris.common.WasiEnv\x12\x39\n\x10\x65xecution_limits\x18\x07 \x01(\x0b\x32\x1f.lunaris.common.ExecutionLimits\x12\x0f\n\x07\x61ttempt\x18\x08 \x01(\r\"A\n\x0cTaskAccepted\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x03 \x01(\r\"\xa4\x01\n\x0e\x43ontrolCommand\x12\x38\n\x04type\x18\x01 \x01(\x0e\x32*.lunaris.worker.ControlCommand.CommandType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\"J\n\x0b\x43ommandType\x12\r\n\tHEARTBEAT\x10\x00\x12\x0c\n\x08SHUTDOWN\x10\x01\x12\x0f\n\x0b\x43\x41NCEL_TASK\x10\x02\x12\r\n\tSET_DRAIN\x10\x03\"\x8a\x01\n\nNodeStatus\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.lunaris.worker.NodeStatus.NodeState\x12\x14\n\x0c\x63urrent_task\x18\x03 \x01(\r\"\x1f\n\tNodeState\x12\x08\n\x04IDLE\x10\x00\x12\x08\n\x04\x42USY\x10\x01\"k\n\x10NodeRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04\x61rch\x18\x02 \x01(\t\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\r\x12\x13\n\x0bmemory_size\x18\x04 \x01(\x04\x12\r\n\x05token\x18\x05 \x01(\t\"(\n\x15NodeRegistrationReply\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"!\n\x0eUnregisterNode\x12\x0f\n\x07node_id\x18\x01 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,17 +37,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TASKACCEPTED']._serialized_start=259
   _globals['_TASKACCEPTED']._serialized_end=324
   _globals['_CONTROLCOMMAND']._serialized_start=327
-  _globals['_CONTROLCOMMAND']._serialized_end=459
+  _globals['_CONTROLCOMMAND']._serialized_end=491
   _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_start=417
-  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_end=459
-  _globals['_NODESTATUS']._serialized_start=462
-  _globals['_NODESTATUS']._serialized_end=600
-  _globals['_NODESTATUS_NODESTATE']._serialized_start=569
-  _globals['_NODESTATUS_NODESTATE']._serialized_end=600
-  _globals['_NODEREGISTRATION']._serialized_start=602
-  _globals['_NODEREGISTRATION']._serialized_end=709
-  _globals['_NODEREGISTRATIONREPLY']._serialized_start=711
-  _globals['_NODEREGISTRATIONREPLY']._serialized_end=751
-  _globals['_UNREGISTERNODE']._serialized_start=753
-  _globals['_UNREGISTERNODE']._serialized_end=786
+  _globals['_CONTROLCOMMAND_COMMANDTYPE']._serialized_end=491
+  _globals['_NODESTATUS']._serialized_start=494
+  _globals['_NODESTATUS']._serialized_end=632
+  _globals['_NODESTATUS_NODESTATE']._serialized_start=601
+  _globals['_NODESTATUS_NODESTATE']._serialized_end=632
+  _globals['_NODEREGISTRATION']._serialized_start=634
+  _globals['_NODEREGISTRATION']._serialized_end=741
+  _globals['_NODEREGISTRATIONREPLY']._serialized_start=743
+  _globals['_NODEREGISTRATIONREPLY']._serialized_end=783
+  _globals['_UNREGISTERNODE']._serialized_start=785
+  _globals['_UNREGISTERNODE']._serialized_end=818
 # @@protoc_insertion_point(module_scope)

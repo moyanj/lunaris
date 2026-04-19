@@ -61,7 +61,10 @@ impl Runner {
     ) -> Self {
         let semaphore = Arc::new(Semaphore::new(max_workers));
         let mut config = Config::new();
-        config.consume_fuel(true);
+        if max_limits.max_fuel > 0 {
+            config.consume_fuel(true);
+        }
+
         let engine = Engine::new(&config).expect("failed to create wasmtime engine");
 
         Self {
@@ -109,7 +112,7 @@ impl Runner {
                     let err_result = WasmResult {
                         result: String::new(),
                         stdout: vec![],
-                        stderr: e.to_string().as_bytes().to_vec(),
+                        stderr: format!("{e:?}").as_bytes().to_vec(),
                         time: 0.0,
                         succeeded: false,
                     };
@@ -209,7 +212,12 @@ fn run_wasm(
         .get_func(&mut store, entry)
         .ok_or_else(|| anyhow!("Function '{}' not found", entry))?;
 
-    let mut results = vec![Val::I32(0)]; // Adjust based on expected return type
+    // 按函数签名动态构造结果槽，避免硬编码返回值类型导致 call 行为不稳定。
+    let func_ty = func.ty(&store);
+    let mut results: Vec<Val> = func_ty
+        .results()
+        .map(default_val_for_type)
+        .collect::<Result<Vec<_>>>()?;
 
     let start = std::time::Instant::now();
     func.call(&mut store, &wasm_args, &mut results)?;
@@ -299,5 +307,16 @@ fn wasm_results_to_json(results: &[Val]) -> Value {
                 .collect();
             Value::Array(values)
         }
+    }
+}
+
+fn default_val_for_type(val_type: ValType) -> Result<Val> {
+    match val_type {
+        ValType::I32 => Ok(Val::I32(0)),
+        ValType::I64 => Ok(Val::I64(0)),
+        ValType::F32 => Ok(Val::F32(0)),
+        ValType::F64 => Ok(Val::F64(0)),
+        ValType::V128 => Ok(Val::V128(0.into())),
+        other => Err(anyhow!("Unsupported result type: {:?}", other)),
     }
 }

@@ -27,6 +27,11 @@ async def main():
     master_parser.add_argument("--max-fuel", type=int, default=0)
     master_parser.add_argument("--max-memory-bytes", type=int, default=0)
     master_parser.add_argument("--max-module-bytes", type=int, default=0)
+    master_parser.add_argument(
+        "--state-dir",
+        default=os.environ.get("LUNARIS_STATE_DIR"),
+        help="Persistent state directory for the single master",
+    )
 
     # Worker 参数
     worker_parser = subparsers.add_parser("worker", help="Run as worker node")
@@ -68,6 +73,7 @@ async def run_master(args):  # Changed to async function
     """运行Master节点"""
     master_app.state.default_execution_limits = _default_limits_from_args(args)
     master_app.state.max_execution_limits = _max_limits_from_args(args)
+    master_app.state.state_dir = args.state_dir
     config = uvicorn.Config(
         master_app,
         host=args.host,

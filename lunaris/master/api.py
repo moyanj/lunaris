@@ -4,10 +4,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket
 from fastapi.websockets import WebSocketDisconnect, WebSocketState
 from lunaris.master.web_app import get_app_state, AppState
-from lunaris.master.manager import Task
+from lunaris.master.model import Task, TaskStatus
+from lunaris.proto.worker_pb2 import ControlCommand
 from lunaris.proto.client_pb2 import CreateTask, TaskCreateFailed, TaskCreated
 from lunaris.utils import Rest, bytes2proto, proto2bytes
-from lunaris.master.model import TaskStatus
 from lunaris.runtime import ExecutionLimits
 import orjson
 
@@ -65,6 +65,7 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
 
                         task = Task(
                             wasm_module=data.wasm_module,
+                            idempotency_key=data.idempotency_key or None,
                             args=orjson.loads(data.args),
                             entry=data.entry,
                             priority=data.priority,
@@ -75,8 +76,32 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                             execution_limits=execution_limits.to_dict(),
                         )
 
+                        scoped_key = (
+                            f"{token}:{data.idempotency_key}"
+                            if data.idempotency_key
+                            else None
+                        )
+                        if scoped_key:
+                            existing = state.task_manager.get_task_by_idempotency_key(
+                                scoped_key
+                            )
+                            if existing:
+                                state.task_manager.subscribe(existing.task_id, ws)
+                                await ws.send_bytes(
+                                    proto2bytes(
+                                        TaskCreated(
+                                            task_id=existing.task_id,
+                                            request_id=data.request_id,
+                                        )
+                                    )
+                                )
+                                continue
+
                         logger.info(f"Created task with ID: {task.task_id}")
-                        state.task_manager.add_task(task, ws)
+                        await state.task_manager.add_task(task, ws)
+                        await state.task_manager.register_idempotency_key(
+                            scoped_key, task
+                        )
                         await ws.send_bytes(
                             proto2bytes(
                                 TaskCreated(
@@ -97,10 +122,8 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                         )
 
                 elif type(data) is UnsubscribeTask:
-                    for task in state.task_manager.all():
-                        if task.task_id in data.task_id:
-                            state.task_manager.task_websockets.pop(task.task_id)
-                    await ws.close()
+                    for task_id in data.task_id:
+                        state.task_manager.unsubscribe(task_id, ws)
 
             except WebSocketDisconnect:
                 break
@@ -112,7 +135,36 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
     except Exception as e:
         logger.error(f"WebSocket connection error: {str(e)}")
     finally:
+        state.task_manager.unsubscribe_ws(ws)
         logger.info("WebSocket connection closed")
+
+
+@app.websocket("/task/{task_id}/subscribe")
+async def subscribe_task(
+    task_id: str,
+    token: str,
+    ws: WebSocket,
+    state: AppState = Depends(get_app_state),
+):
+    if token != state.client_token:
+        raise HTTPException(status_code=403, detail="Invalid token")
+    await ws.accept()
+    task = state.task_manager.get_task(task_id)
+    if not task:
+        await ws.close(code=4404)
+        return
+
+    state.task_manager.subscribe(task_id, ws)
+    if task.result:
+        await ws.send_bytes(proto2bytes(task.result.to_proto(task_id)))
+
+    try:
+        while ws.client_state == WebSocketState.CONNECTED:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        state.task_manager.unsubscribe(task_id, ws)
 
 
 @app.get("/task/{task_id}")
@@ -121,19 +173,10 @@ async def get_task_result(
     state: AppState = Depends(get_app_state),
     _auth: None = Depends(require_client_token),
 ):
-    for result in state.task_manager.result:
-        if result.task_id == task_id:
-            return Rest(
-                data={
-                    "task_id": result.task_id,
-                    "result": result.result,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "time": result.time,
-                }
-            )
-
-    return Rest(msg="Task not found or doesn't run", status_code=404)
+    result = state.task_manager.get_task_result(task_id)
+    if result:
+        return Rest(data=result)
+    return Rest(msg="Task result not found", status_code=404)
 
 
 @app.get("/tasks")
@@ -185,6 +228,50 @@ async def get_task_status(
     if task:
         return Rest(data=task.to_dict())
     return Rest(msg="Task not found", status_code=404)
+
+
+@app.get("/task/{task_id}/events")
+async def get_task_events(
+    task_id: str,
+    after_seq: int = Query(default=0, ge=0),
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
+    task = state.task_manager.get_task(task_id)
+    if not task:
+        return Rest(msg="Task not found", status_code=404)
+    return Rest(data={"task_id": task_id, "events": state.task_manager.get_task_events(task_id, after_seq)})
+
+
+@app.post("/task/{task_id}/cancel")
+async def cancel_task(
+    task_id: str,
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
+    task = await state.task_manager.cancel_task(task_id)
+    if not task:
+        return Rest(msg="Task not found", status_code=404)
+    if task.status == TaskStatus.CANCEL_REQUESTED and task.assigned_worker:
+        await state.worker_manager.send_control_command(
+            task.assigned_worker,
+            ControlCommand.CommandType.CANCEL_TASK,
+            {"task_id": task.task_id},
+        )
+    return Rest(data=task.to_dict())
+
+
+@app.post("/worker/{worker_id}/drain")
+async def set_worker_drain(
+    worker_id: str,
+    enabled: bool = Query(default=True),
+    state: AppState = Depends(get_app_state),
+    _auth: None = Depends(require_client_token),
+):
+    ok = await state.worker_manager.set_drain(worker_id, enabled)
+    if not ok:
+        return Rest(msg="Worker not found", status_code=404)
+    return Rest(data={"worker_id": worker_id, "drain": enabled})
 
 
 @app.get("/stats")
