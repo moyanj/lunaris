@@ -1,0 +1,82 @@
+site_name: Lunaris 文档
+site_description: 分布式 WASM 执行器 - Python + Rust 高性能工作节点
+site_author: moyanj
+repo_url: https://github.com/moyanj/Lunaris
+repo_name: moyanj/Lunaris
+
+theme:
+  name: material
+  language: zh
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - tags
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+
+nav:
+  - 首页: index.md
+  - 快速开始:
+      - 安装: getting-started/installation.md
+      - 快速上手: getting-started/quickstart.md
+  - 架构设计:
+      - 概述: architecture/overview.md
+      - 主节点: architecture/master.md
+      - Python 工作节点: architecture/python-worker.md
+      - Rust 工作节点: architecture/rust-worker.md
+      - 通信协议: architecture/protocol.md
+  - Python SDK:
+      - 概述: sdk/overview.md
+      - 异步客户端: sdk/async-client.md
+      - 同步客户端: sdk/sync-client.md
+      - 示例: sdk/examples.md
+  - CLI 参考:
+      - 概述: cli/overview.md
+      - master 命令: cli/master.md
+      - worker 命令: cli/worker.md
+  - 部署:
+      - 部署指南: deployment/guide.md
+      - 生产环境配置: deployment/production.md
+  - 开发:
+      - 开发指南: development/guide.md
+      - 贡献指南: development/contributing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/moyanj/Lunaris
