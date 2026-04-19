@@ -67,8 +67,6 @@ nav:
       - 示例: sdk/examples.md
   - CLI 参考:
       - 概述: cli/overview.md
-      - master 命令: cli/master.md
-      - worker 命令: cli/worker.md
   - 部署:
       - 部署指南: deployment/guide.md
       - 生产环境配置: deployment/production.md
