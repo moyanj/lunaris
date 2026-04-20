@@ -66,7 +66,8 @@ class SyncLunarisClient:
         wasi_env: Optional[WasiEnv] = None,
         execution_limits: Optional[ExecutionLimits] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+        host_capabilities: Optional[List[str]] = None,
+    ) -> int:
         """
         提交WASM任务
 
@@ -91,6 +92,7 @@ class SyncLunarisClient:
                 wasi_env=wasi_env,
                 execution_limits=execution_limits,
                 idempotency_key=idempotency_key,
+                host_capabilities=host_capabilities,
             )
 
         return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
@@ -106,7 +108,8 @@ class SyncLunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+        host_capabilities: Optional[List[str]] = None,
+    ) -> int:
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -121,6 +124,7 @@ class SyncLunarisClient:
                 execution_limits=execution_limits,
                 compile_options=compile_options,
                 idempotency_key=idempotency_key,
+                host_capabilities=host_capabilities,
             )
 
         return asyncio.run_coroutine_threadsafe(_submit(), self._loop).result()  # type: ignore
@@ -135,7 +139,7 @@ class SyncLunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+    ) -> int:
         return self.submit_source(
             "c",
             source_code,
@@ -158,7 +162,7 @@ class SyncLunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+    ) -> int:
         return self.submit_source(
             "cxx",
             source_code,
@@ -181,7 +185,7 @@ class SyncLunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+    ) -> int:
         return self.submit_source(
             "zig",
             source_code,
@@ -204,7 +208,7 @@ class SyncLunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+    ) -> int:
         return self.submit_source(
             "rust",
             source_code,
@@ -227,7 +231,7 @@ class SyncLunarisClient:
         execution_limits: Optional[ExecutionLimits] = None,
         compile_options: Optional[CompileOptions] = None,
         idempotency_key: Optional[str] = None,
-    ) -> str:
+    ) -> int:
         return self.submit_source(
             "go",
             source_code,
@@ -240,7 +244,7 @@ class SyncLunarisClient:
             idempotency_key=idempotency_key,
         )
 
-    def get_task_result(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get_task_result(self, task_id: int) -> Optional[Dict[str, Any]]:
         """
         获取任务结果
 
@@ -258,7 +262,7 @@ class SyncLunarisClient:
 
         return asyncio.run_coroutine_threadsafe(_get_result(), self._loop).result()  # type: ignore
 
-    def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get_task_status(self, task_id: int) -> Optional[Dict[str, Any]]:
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -313,7 +317,7 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_stats(), self._loop).result()  # type: ignore
 
     def wait_for_task(
-        self, task_id: str, timeout: Optional[float] = None
+        self, task_id: int, timeout: Optional[float] = None
     ) -> TaskResult:
         """
         等待特定任务完成
@@ -333,7 +337,7 @@ class SyncLunarisClient:
 
         return asyncio.run_coroutine_threadsafe(_wait(), self._loop).result(timeout)  # type: ignore
 
-    def unsubscribe_tasks(self, task_ids: List[str]):
+    def unsubscribe_tasks(self, task_ids: List[int]):
         """
         取消订阅任务结果
 

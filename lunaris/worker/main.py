@@ -17,6 +17,7 @@ from lunaris.proto.worker_pb2 import (
     UnregisterNode,
 )
 from lunaris.proto.common_pb2 import TaskResult
+from lunaris.runtime.capabilities import DEFAULT_PROVIDED_CAPABILITIES
 from lunaris.runtime import ExecutionLimits
 from lunaris.runtime.engine import WasmResult
 from lunaris.worker.core import Runner
@@ -72,7 +73,7 @@ class Worker:
         )
         self.num_running = 0
         self.drain_enabled = False
-        self.cancelled_tasks: set[str] = set()
+        self.cancelled_tasks: set[int] = set()
 
     async def connect(self) -> None:
         """建立与Master的WebSocket连接"""
@@ -126,6 +127,7 @@ class Worker:
             max_concurrency=self.max_concurrency,
             memory_size=psutil.virtual_memory().total // 1048576,
             token=self.token,
+            provided_capabilities={"items": list(DEFAULT_PROVIDED_CAPABILITIES)},
         )
         await self.ws.send(proto2bytes(registration))
 
@@ -140,7 +142,7 @@ class Worker:
 
         logger.info(f"Registered.")
 
-    async def report_result(self, result: WasmResult, task_id: str, attempt: int) -> None:
+    async def report_result(self, result: WasmResult, task_id: int, attempt: int) -> None:
         """向Master报告任务结果"""
         if not self.ws:
             raise ConnectionError("WebSocket未连接")
@@ -223,8 +225,8 @@ class Worker:
             except json.JSONDecodeError:
                 payload = {}
             task_id = payload.get("task_id")
-            if task_id:
-                self.cancelled_tasks.add(task_id)
+            if task_id is not None:
+                self.cancelled_tasks.add(int(task_id))
                 logger.info("Received cancel request for task {}", task_id)
 
     async def run(self) -> None:

@@ -7,6 +7,7 @@ from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.model import Task, TaskStatus
 from lunaris.proto.worker_pb2 import ControlCommand
 from lunaris.proto.client_pb2 import CreateTask, TaskCreateFailed, TaskCreated
+from lunaris.runtime.capabilities import normalize_host_capabilities
 from lunaris.utils import Rest, bytes2proto, proto2bytes
 from lunaris.runtime import ExecutionLimits
 import orjson
@@ -74,6 +75,9 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                                 "args": list(data.wasi_env.args),
                             },
                             execution_limits=execution_limits.to_dict(),
+                            host_capabilities=normalize_host_capabilities(
+                                data.host_capabilities.items
+                            ),
                         )
 
                         scoped_key = (
@@ -141,7 +145,7 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
 
 @app.websocket("/task/{task_id}/subscribe")
 async def subscribe_task(
-    task_id: str,
+    task_id: int,
     token: str,
     ws: WebSocket,
     state: AppState = Depends(get_app_state),
@@ -169,7 +173,7 @@ async def subscribe_task(
 
 @app.get("/task/{task_id}")
 async def get_task_result(
-    task_id: str,
+    task_id: int,
     state: AppState = Depends(get_app_state),
     _auth: None = Depends(require_client_token),
 ):
@@ -219,7 +223,7 @@ async def get_tasks_by_worker(
 
 @app.get("/task/{task_id}/status")
 async def get_task_status(
-    task_id: str,
+    task_id: int,
     state: AppState = Depends(get_app_state),
     _auth: None = Depends(require_client_token),
 ):
@@ -232,7 +236,7 @@ async def get_task_status(
 
 @app.get("/task/{task_id}/events")
 async def get_task_events(
-    task_id: str,
+    task_id: int,
     after_seq: int = Query(default=0, ge=0),
     state: AppState = Depends(get_app_state),
     _auth: None = Depends(require_client_token),
@@ -245,7 +249,7 @@ async def get_task_events(
 
 @app.post("/task/{task_id}/cancel")
 async def cancel_task(
-    task_id: str,
+    task_id: int,
     state: AppState = Depends(get_app_state),
     _auth: None = Depends(require_client_token),
 ):

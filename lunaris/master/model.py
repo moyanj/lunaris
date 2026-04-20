@@ -70,7 +70,7 @@ class TaskResultPayload(BaseModel):
             attempt=proto.attempt,
         )
 
-    def to_proto(self, task_id: str) -> TaskResult:
+    def to_proto(self, task_id: int) -> TaskResult:
         return TaskResult(
             task_id=task_id,
             result=self.result,
@@ -119,7 +119,7 @@ class TaskResultPayload(BaseModel):
 
 class TaskAttempt(BaseModel):
     attempt_id: str = Field(default_factory=id_gen.get_id)
-    task_id: str
+    task_id: int
     attempt_no: int
     worker_id: str
     status: AttemptStatus = AttemptStatus.DISPATCHED
@@ -172,7 +172,8 @@ class WorkerRecord(BaseModel):
     status: WorkerStatus = WorkerStatus.ACTIVE
     drain: bool = False
     capacity_used: int = 0
-    current_tasks: list[str] = Field(default_factory=list)
+    current_tasks: list[int] = Field(default_factory=list)
+    provided_capabilities: list[str] = Field(default_factory=list)
     last_heartbeat: datetime = Field(default_factory=_now)
     connected: bool = True
 
@@ -187,6 +188,7 @@ class WorkerRecord(BaseModel):
             "drain": self.drain,
             "capacity_used": self.capacity_used,
             "current_tasks": self.current_tasks,
+            "provided_capabilities": self.provided_capabilities,
             "last_heartbeat": self.last_heartbeat.isoformat(),
             "connected": self.connected,
         }
@@ -203,7 +205,7 @@ class TaskEvent(BaseModel):
     seq: int
     event_type: str
     created_at: datetime = Field(default_factory=_now)
-    task_id: Optional[str] = None
+    task_id: Optional[int] = None
     worker_id: Optional[str] = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
@@ -228,12 +230,13 @@ class TaskEvent(BaseModel):
 class Task(BaseModel):
     wasm_module: bytes
     entry: str = "main"
-    task_id: str = Field(default_factory=id_gen.get_id)
+    task_id: int = Field(default_factory=lambda: int(id_gen.get_id()))
     idempotency_key: Optional[str] = None
     args: list = Field(default_factory=list)
     priority: int = 0
     wasi_env: dict[str, Union[dict[str, str], list[str]]] = Field(default_factory=dict)
     execution_limits: dict[str, int] = Field(default_factory=dict)
+    host_capabilities: list[str] = Field(default_factory=list)
     status: TaskStatus = TaskStatus.CREATED
     assigned_worker: Optional[str] = None
     created_at: datetime = Field(default_factory=_now)
@@ -258,6 +261,7 @@ class Task(BaseModel):
             "args": self.args,
             "priority": self.priority,
             "execution_limits": self.execution_limits,
+            "host_capabilities": self.host_capabilities,
             "status": self.status.value,
             "assigned_worker": self.assigned_worker,
             "created_at": self.created_at.isoformat() if self.created_at else None,

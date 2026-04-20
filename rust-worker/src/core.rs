@@ -10,6 +10,7 @@ use tokio::time::interval;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info};
 
+use crate::capabilities::DEFAULT_PROVIDED_CAPABILITIES;
 use crate::engine::{Runner, WasmResult};
 use crate::proto::common::envelope::MessageType;
 use crate::proto::{self, common, worker};
@@ -23,7 +24,7 @@ pub struct Worker {
     running: Arc<Mutex<bool>>,
     num_running: Arc<Mutex<usize>>,
     drain_enabled: Arc<Mutex<bool>>,
-    cancelled_tasks: Arc<Mutex<HashSet<String>>>,
+    cancelled_tasks: Arc<Mutex<HashSet<u64>>>,
     runner: Option<Runner>,
     default_execution_limits: common::ExecutionLimits,
     max_execution_limits: common::ExecutionLimits,
@@ -90,6 +91,12 @@ impl Worker {
             max_concurrency: self.max_concurrency as u32,
             memory_size: (sysinfo::System::new_all().total_memory() / 1024 / 1024) as u64,
             token: self.token.clone(),
+            provided_capabilities: Some(common::HostCapabilities {
+                items: DEFAULT_PROVIDED_CAPABILITIES
+                    .iter()
+                    .map(|capability| capability.to_string())
+                    .collect(),
+            }),
         };
 
         let bytes = proto::to_bytes(&registration.encode_to_vec(), MessageType::NodeRegistration)?;
@@ -156,7 +163,7 @@ impl Worker {
             Message,
         >,
         result: WasmResult,
-        task_id: String,
+        task_id: u64,
         attempt: u32,
     ) -> Result<()> {
         let task_result = common::TaskResult {
@@ -201,20 +208,15 @@ impl Worker {
                 succeeded: false,
             };
             let mut write_guard = write.lock().await;
-            Self::report_result_static(
-                &mut write_guard,
-                result,
-                task.task_id.clone(),
-                task.attempt,
-            )
-            .await?;
+            Self::report_result_static(&mut write_guard, result, task.task_id, task.attempt)
+                .await?;
             return Ok(());
         }
 
         let mut write_guard = write.lock().await;
         Self::report_task_accepted_static(
             &mut write_guard,
-            task.task_id.clone(),
+            task.task_id,
             self.node_id.clone(),
             task.attempt,
         )
@@ -244,8 +246,8 @@ impl Worker {
                 info!("Drain mode set to {}", enabled);
             }
             Ok(worker::control_command::CommandType::CancelTask) => {
-                if let Some(task_id) = parse_string_flag(&command.data, "task_id") {
-                    self.cancelled_tasks.lock().await.insert(task_id.clone());
+                if let Some(task_id) = parse_u64_flag(&command.data, "task_id") {
+                    self.cancelled_tasks.lock().await.insert(task_id);
                     info!("Received cancel request for task {}", task_id);
                 }
             }
@@ -388,7 +390,7 @@ impl Worker {
             Message,
         >,
         result: WasmResult,
-        task_id: String,
+        task_id: u64,
         attempt: u32,
     ) -> Result<()> {
         let task_result = common::TaskResult {
@@ -413,7 +415,7 @@ impl Worker {
             >,
             Message,
         >,
-        task_id: String,
+        task_id: u64,
         node_id: String,
         attempt: u32,
     ) -> Result<()> {
@@ -445,11 +447,10 @@ fn parse_bool_flag(data: &str, key: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn parse_string_flag(data: &str, key: &str) -> Option<String> {
+fn parse_u64_flag(data: &str, key: &str) -> Option<u64> {
     serde_json::from_str::<Value>(data).ok().and_then(|value| {
         value
             .get(key)
-            .and_then(|item| item.as_str())
-            .map(str::to_string)
+            .and_then(|item| item.as_u64().or_else(|| item.as_str()?.parse().ok()))
     })
 }

@@ -21,12 +21,12 @@ class FileStateStore(StateStore):
         self.root.mkdir(parents=True, exist_ok=True)
         self.snapshot_path = self.root / "state.json"
         self.events_path = self.root / "events.jsonl"
-        self.tasks: dict[str, Task] = {}
+        self.tasks: dict[int, Task] = {}
         self.attempts: dict[str, TaskAttempt] = {}
         self.workers: dict[str, WorkerRecord] = {}
-        self.task_events: dict[str, list[TaskEvent]] = defaultdict(list)
+        self.task_events: dict[int, list[TaskEvent]] = defaultdict(list)
         self.events: list[TaskEvent] = []
-        self.idempotency_index: dict[str, str] = {}
+        self.idempotency_index: dict[str, int] = {}
         self._next_seq = 1
         self._lock: Optional[asyncio.Lock] = None
 
@@ -44,7 +44,7 @@ class FileStateStore(StateStore):
             self.tasks.clear()
             self.tasks.update(
                 {
-                    task_id: Task.from_snapshot(task_data)
+                    int(task_id): Task.from_snapshot(task_data)
                     for task_id, task_data in payload.get("tasks", {}).items()
                 }
             )
@@ -62,7 +62,10 @@ class FileStateStore(StateStore):
                     for worker_id, worker_data in payload.get("workers", {}).items()
                 }
             )
-            self.idempotency_index = dict(payload.get("idempotency_index", {}))
+            self.idempotency_index = {
+                key: int(task_id)
+                for key, task_id in payload.get("idempotency_index", {}).items()
+            }
 
         if self.events_path.exists():
             self.task_events.clear()
@@ -74,7 +77,7 @@ class FileStateStore(StateStore):
                     continue
                 event = TaskEvent.from_snapshot(orjson.loads(line))
                 self.events.append(event)
-                if event.task_id:
+                if event.task_id is not None:
                     self.task_events[event.task_id].append(event)
                 self._next_seq = max(self._next_seq, event.seq + 1)
 
@@ -83,7 +86,7 @@ class FileStateStore(StateStore):
             # 使用原子替换写快照，避免进程中断后留下半写入文件。
             payload = {
                 "tasks": {
-                    task_id: task.to_snapshot() for task_id, task in self.tasks.items()
+                    str(task_id): task.to_snapshot() for task_id, task in self.tasks.items()
                 },
                 "attempts": {
                     attempt_id: attempt.to_snapshot()
@@ -93,7 +96,9 @@ class FileStateStore(StateStore):
                     worker_id: worker.to_snapshot()
                     for worker_id, worker in self.workers.items()
                 },
-                "idempotency_index": self.idempotency_index,
+                "idempotency_index": {
+                    key: task_id for key, task_id in self.idempotency_index.items()
+                },
             }
             tmp_path = self.snapshot_path.with_suffix(".tmp")
             async with aiofiles.open(tmp_path, "wb") as f:
@@ -104,7 +109,7 @@ class FileStateStore(StateStore):
         self,
         event_type: str,
         *,
-        task_id: Optional[str] = None,
+        task_id: Optional[int] = None,
         worker_id: Optional[str] = None,
         payload: Optional[dict] = None,
     ) -> TaskEvent:
@@ -119,14 +124,13 @@ class FileStateStore(StateStore):
             )
             self._next_seq += 1
             self.events.append(event)
-            if task_id:
+            if task_id is not None:
                 self.task_events[task_id].append(event)
             async with aiofiles.open(self.events_path, "ab") as f:
                 await f.write(orjson.dumps(event.to_snapshot()))
                 await f.write(b"\n")
             return event
 
-    def get_task_events(self, task_id: str, after_seq: int = 0) -> list[TaskEvent]:
+    def get_task_events(self, task_id: int, after_seq: int = 0) -> list[TaskEvent]:
         events = self.task_events.get(task_id, [])
         return [event for event in events if event.seq > after_seq]
-

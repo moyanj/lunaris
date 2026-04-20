@@ -13,10 +13,11 @@ message CreateTask {
   common.ExecutionLimits execution_limits = 7; // 执行资源限制
   string request_id = 8;       // 客户端请求ID，用于匹配异步创建响应
   string idempotency_key = 9;  // 幂等键，相同 client + key 返回同一任务
+  common.HostCapabilities host_capabilities = 10; // 宿主能力组
 }
 
 message TaskCreated {
-  string task_id = 1;
+  uint64 task_id = 1;
   string request_id = 2;
 }
 
@@ -25,4 +26,4 @@ message TaskCreateFailed {
   string request_id = 2;
 }
 
-message UnsubscribeTask { repeated string task_id = 1; }
+message UnsubscribeTask { repeated uint64 task_id = 1; }

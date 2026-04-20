@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from lunaris.proto import common_pb2 as common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63lient.proto\x12\x0elunaris.client\x1a\x0c\x63ommon.proto\"\xe3\x01\n\nCreateTask\x12\x13\n\x0bwasm_module\x18\x01 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\t\x12\r\n\x05\x65ntry\x18\x03 \x01(\t\x12\x10\n\x08priority\x18\x04 \x01(\r\x12)\n\x08wasi_env\x18\x06 \x01(\x0b\x32\x17.lunaris.common.WasiEnv\x12\x39\n\x10\x65xecution_limits\x18\x07 \x01(\x0b\x32\x1f.lunaris.common.ExecutionLimits\x12\x12\n\nrequest_id\x18\x08 \x01(\t\x12\x17\n\x0fidempotency_key\x18\t \x01(\t\"2\n\x0bTaskCreated\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x12\n\nrequest_id\x18\x02 \x01(\t\"5\n\x10TaskCreateFailed\x12\r\n\x05\x65rror\x18\x01 \x01(\t\x12\x12\n\nrequest_id\x18\x02 \x01(\t\"\"\n\x0fUnsubscribeTask\x12\x0f\n\x07task_id\x18\x01 \x03(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63lient.proto\x12\x0elunaris.client\x1a\x0c\x63ommon.proto\"\xa0\x02\n\nCreateTask\x12\x13\n\x0bwasm_module\x18\x01 \x01(\x0c\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\t\x12\r\n\x05\x65ntry\x18\x03 \x01(\t\x12\x10\n\x08priority\x18\x04 \x01(\r\x12)\n\x08wasi_env\x18\x06 \x01(\x0b\x32\x17.lunaris.common.WasiEnv\x12\x39\n\x10\x65xecution_limits\x18\x07 \x01(\x0b\x32\x1f.lunaris.common.ExecutionLimits\x12\x12\n\nrequest_id\x18\x08 \x01(\t\x12\x17\n\x0fidempotency_key\x18\t \x01(\t\x12;\n\x11host_capabilities\x18\n \x01(\x0b\x32 .lunaris.common.HostCapabilities\"2\n\x0bTaskCreated\x12\x0f\n\x07task_id\x18\x01 \x01(\x04\x12\x12\n\nrequest_id\x18\x02 \x01(\t\"5\n\x10TaskCreateFailed\x12\r\n\x05\x65rror\x18\x01 \x01(\t\x12\x12\n\nrequest_id\x18\x02 \x01(\t\"\"\n\x0fUnsubscribeTask\x12\x0f\n\x07task_id\x18\x01 \x03(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,11 +33,11 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'client_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CREATETASK']._serialized_start=47
-  _globals['_CREATETASK']._serialized_end=274
-  _globals['_TASKCREATED']._serialized_start=276
-  _globals['_TASKCREATED']._serialized_end=326
-  _globals['_TASKCREATEFAILED']._serialized_start=328
-  _globals['_TASKCREATEFAILED']._serialized_end=381
-  _globals['_UNSUBSCRIBETASK']._serialized_start=383
-  _globals['_UNSUBSCRIBETASK']._serialized_end=417
+  _globals['_CREATETASK']._serialized_end=335
+  _globals['_TASKCREATED']._serialized_start=337
+  _globals['_TASKCREATED']._serialized_end=387
+  _globals['_TASKCREATEFAILED']._serialized_start=389
+  _globals['_TASKCREATEFAILED']._serialized_end=442
+  _globals['_UNSUBSCRIBETASK']._serialized_start=444
+  _globals['_UNSUBSCRIBETASK']._serialized_end=478
 # @@protoc_insertion_point(module_scope)

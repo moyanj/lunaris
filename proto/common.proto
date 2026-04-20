@@ -24,7 +24,7 @@ message Envelope {
 }
 
 message TaskResult {
-  string task_id = 1; // 对应任务ID
+  uint64 task_id = 1; // 对应任务ID
   string result = 2;  // 结果（JSON格式）
   bytes stdout = 3;   // 标准输出
   bytes stderr = 4;   // 错误输出
@@ -36,6 +36,10 @@ message TaskResult {
 message WasiEnv {
   map<string, string> env = 1; // 环境变量
   repeated string args = 2;    // 参数
+}
+
+message HostCapabilities {
+  repeated string items = 1;
 }
 
 message ExecutionLimits {

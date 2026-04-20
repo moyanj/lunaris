@@ -14,9 +14,10 @@ def _execute_task(
     args: list,
     entry: str,
     env: dict[str, str],
-    wasi_args: dict[str, str],
+    wasi_args: list[str],
     execution_limits: dict[str, int],
-    task_id: str,
+    host_capabilities: list[str],
+    task_id: int,
     attempt: int,
     result_queue: multiprocessing.Queue,
 ):
@@ -41,6 +42,7 @@ def _execute_task(
             env=env,
             wasi_args=wasi_args,
             execution_limits=limits,
+            host_capabilities=host_capabilities,
         )
         # 将结果和任务ID放入队列
         result_queue.put((result, task_id, attempt))
@@ -65,7 +67,7 @@ class Runner:
     def __init__(
         self,
         max_workers: int,
-        report_callback: Callable[[WasmResult, str, int], Any],
+        report_callback: Callable[[WasmResult, int, int], Any],
         default_execution_limits: Optional[ExecutionLimits] = None,
         max_execution_limits: Optional[ExecutionLimits] = None,
     ):
@@ -140,6 +142,7 @@ class Runner:
             dict(task.wasi_env.env),  # type: ignore
             list(task.wasi_env.args),  # type: ignore
             execution_limits.to_dict(),
+            list(task.host_capabilities.items),
             task.task_id,
             task.attempt,
             self.result_queue,  # type: ignore 将共享队列传递给子进程

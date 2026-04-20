@@ -1,6 +1,7 @@
 use clap::Parser;
 use tracing::{error, info};
 
+mod capabilities;
 mod cli;
 mod core;
 mod engine;

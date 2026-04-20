@@ -52,14 +52,14 @@ class TaskResult(_message.Message):
     TIME_FIELD_NUMBER: _ClassVar[int]
     SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
     ATTEMPT_FIELD_NUMBER: _ClassVar[int]
-    task_id: str
+    task_id: int
     result: str
     stdout: bytes
     stderr: bytes
     time: float
     succeeded: bool
     attempt: int
-    def __init__(self, task_id: _Optional[str] = ..., result: _Optional[str] = ..., stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ..., attempt: _Optional[int] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[int] = ..., result: _Optional[str] = ..., stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., time: _Optional[float] = ..., succeeded: _Optional[bool] = ..., attempt: _Optional[int] = ...) -> None: ...
 
 class WasiEnv(_message.Message):
     __slots__ = ("env", "args")
@@ -75,6 +75,12 @@ class WasiEnv(_message.Message):
     env: _containers.ScalarMap[str, str]
     args: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, env: _Optional[_Mapping[str, str]] = ..., args: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class HostCapabilities(_message.Message):
+    __slots__ = ("items",)
+    ITEMS_FIELD_NUMBER: _ClassVar[int]
+    items: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, items: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ExecutionLimits(_message.Message):
     __slots__ = ("max_fuel", "max_memory_bytes", "max_module_bytes")

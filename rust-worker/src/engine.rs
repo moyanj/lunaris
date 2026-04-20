@@ -1,10 +1,14 @@
 use anyhow::{Result, anyhow};
 use serde_json::{Value, from_str, json};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio::sync::{Semaphore, mpsc};
 use wasmtime::*;
 use wasmtime_wasi::{WasiCtx, p1::WasiP1Ctx, p2::pipe::MemoryOutputPipe};
 
+use crate::capabilities::{CapabilityHostState, register_capabilities};
 use crate::proto::{common::ExecutionLimits, worker};
 
 pub struct WasmResult {
@@ -17,7 +21,7 @@ pub struct WasmResult {
 
 pub struct Runner {
     wasm_engine: Engine,
-    result_tx: mpsc::Sender<(WasmResult, String, u32)>,
+    result_tx: mpsc::Sender<(WasmResult, u64, u32)>,
     concurrency: Arc<Semaphore>, // 用信号量控制最大并发数
     default_limits: ExecutionLimits,
     max_limits: ExecutionLimits,
@@ -27,7 +31,7 @@ impl Runner {
     #[allow(unused)]
     pub fn new<F>(max_workers: usize, report_callback: F) -> Self
     where
-        F: Fn(WasmResult, String) + Send + Sync + 'static,
+        F: Fn(WasmResult, u64) + Send + Sync + 'static,
     {
         let (tx, mut rx) = mpsc::channel(100);
         let report_callback = Arc::new(report_callback);
@@ -55,7 +59,7 @@ impl Runner {
 
     pub fn new_with_channel(
         max_workers: usize,
-        result_tx: mpsc::Sender<(WasmResult, String, u32)>,
+        result_tx: mpsc::Sender<(WasmResult, u64, u32)>,
         default_limits: ExecutionLimits,
         max_limits: ExecutionLimits,
     ) -> Self {
@@ -80,8 +84,12 @@ impl Runner {
         let code = task.wasm_module;
         let args_json = task.args;
         let entry = task.entry;
-        let task_id = task.task_id.clone();
+        let task_id = task.task_id;
         let attempt = task.attempt;
+        let host_capabilities = task
+            .host_capabilities
+            .map(|capabilities| capabilities.items)
+            .unwrap_or_default();
         let mut wasi_env: HashMap<String, String> = HashMap::new();
         let mut wasi_args: Vec<String> = vec![];
         let limits = clamp_limits(
@@ -100,7 +108,14 @@ impl Runner {
         // 提交到阻塞线程池执行
         tokio::task::spawn_blocking(move || {
             match run_wasm(
-                &engine, &code, &args_json, &entry, &wasi_env, &wasi_args, &limits,
+                &engine,
+                &code,
+                &args_json,
+                &entry,
+                &wasi_env,
+                &wasi_args,
+                &limits,
+                &host_capabilities,
             ) {
                 Ok(result) => {
                     // 使用当前运行时发送结果
@@ -135,6 +150,7 @@ fn run_wasm(
     env: &HashMap<String, String>,
     args: &Vec<String>,
     limits: &ExecutionLimits,
+    host_capabilities: &[String],
 ) -> Result<WasmResult> {
     if limits.max_module_bytes > 0 && code.len() as u64 > limits.max_module_bytes {
         return Err(anyhow!(
@@ -147,6 +163,7 @@ fn run_wasm(
     let module = Module::new(wasm_engine, code)?;
     let mut linker = Linker::new(wasm_engine);
     wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s: &mut HostState| &mut s.wasi)?;
+    register_capabilities(&mut linker, host_capabilities)?;
 
     let stdout = MemoryOutputPipe::new(512);
     let stderr = MemoryOutputPipe::new(512);
@@ -166,6 +183,7 @@ fn run_wasm(
         HostState {
             wasi,
             limits: build_store_limits(limits),
+            enabled_capabilities: host_capabilities.iter().cloned().collect(),
         },
     );
     store.limiter(|state| &mut state.limits);
@@ -237,6 +255,13 @@ fn run_wasm(
 struct HostState {
     wasi: WasiP1Ctx,
     limits: StoreLimits,
+    enabled_capabilities: HashSet<String>,
+}
+
+impl CapabilityHostState for HostState {
+    fn enabled_capabilities(&self) -> &HashSet<String> {
+        &self.enabled_capabilities
+    }
 }
 
 fn build_store_limits(limits: &ExecutionLimits) -> StoreLimits {
@@ -318,5 +343,154 @@ fn default_val_for_type(val_type: ValType) -> Result<Val> {
         ValType::F64 => Ok(Val::F64(0)),
         ValType::V128 => Ok(Val::V128(0.into())),
         other => Err(anyhow!("Unsupported result type: {:?}", other)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_wasm;
+    use crate::proto::common::ExecutionLimits;
+    use std::{
+        collections::HashMap,
+        fs,
+        path::PathBuf,
+        process::Command,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+    use wasmtime::{Config, Engine};
+
+    const WASI_P1_STDIO_ENV_ARGS: &str = r#"
+#[no_mangle]
+pub extern "C" fn wmain() -> i32 {
+    let env_value = std::env::var("LUNARIS_WASI_P1").unwrap_or_else(|_| "missing".to_string());
+    let arg_value = std::env::args().nth(1).unwrap_or_else(|| "missing".to_string());
+
+    println!("stdout env={env_value} arg={arg_value}");
+    eprintln!("stderr env={env_value} arg={arg_value}");
+
+    if env_value == "preview1" && arg_value == "alpha" {
+        42
+    } else {
+        -1
+    }
+}
+"#;
+
+    const WASI_P1_NO_PREOPEN_FS: &str = r#"
+#[no_mangle]
+pub extern "C" fn wmain() -> i32 {
+    match std::fs::read_to_string("/workspace/input.txt") {
+        Ok(_) => 1,
+        Err(err) => {
+            eprintln!("fs_error={err}");
+            0
+        }
+    }
+}
+"#;
+
+    #[test]
+    fn supports_stdio_env_and_args() {
+        let wasm = compile_wasi_p1_rust(WASI_P1_STDIO_ENV_ARGS);
+        let engine = test_engine();
+        let mut env = HashMap::new();
+        env.insert("LUNARIS_WASI_P1".to_string(), "preview1".to_string());
+        let args = vec!["lunaris-test".to_string(), "alpha".to_string()];
+        let limits = test_limits();
+
+        let result = run_wasm(&engine, &wasm, "[]", "wmain", &env, &args, &limits, &[])
+            .expect("run_wasm should succeed");
+
+        assert!(result.succeeded);
+        assert_eq!(result.result, "42");
+        assert!(String::from_utf8_lossy(&result.stdout).contains("stdout env=preview1 arg=alpha"));
+        assert!(String::from_utf8_lossy(&result.stderr).contains("stderr env=preview1 arg=alpha"));
+    }
+
+    #[test]
+    fn filesystem_access_is_not_exposed_without_preopens() {
+        let wasm = compile_wasi_p1_rust(WASI_P1_NO_PREOPEN_FS);
+        let engine = test_engine();
+        let limits = test_limits();
+
+        let result = run_wasm(
+            &engine,
+            &wasm,
+            "[]",
+            "wmain",
+            &HashMap::new(),
+            &vec!["lunaris-test".to_string()],
+            &limits,
+            &[],
+        )
+        .expect("run_wasm should succeed");
+
+        assert!(result.succeeded);
+        assert_eq!(result.result, "0");
+        assert!(String::from_utf8_lossy(&result.stderr).contains("fs_error="));
+    }
+
+    fn test_engine() -> Engine {
+        let mut config = Config::new();
+        config.consume_fuel(true);
+        Engine::new(&config).expect("failed to create wasmtime engine")
+    }
+
+    fn test_limits() -> ExecutionLimits {
+        ExecutionLimits {
+            max_fuel: 1_000_000,
+            max_memory_bytes: 16 * 1024 * 1024,
+            max_module_bytes: 4 * 1024 * 1024,
+        }
+    }
+
+    fn compile_wasi_p1_rust(source: &str) -> Vec<u8> {
+        let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
+        let mut root = std::env::temp_dir();
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time before unix epoch")
+            .as_nanos();
+        root.push(format!("lunaris-rust-worker-wasi-p1-{unique}"));
+        fs::create_dir_all(&root).expect("failed to create temp dir");
+
+        let source_path = root.join("module.rs");
+        let wasm_path = root.join("module.wasm");
+        fs::write(&source_path, source).expect("failed to write rust source");
+
+        let output = Command::new(&rustc)
+            .args([
+                source_path
+                    .to_str()
+                    .expect("temp source path should be valid utf-8"),
+                "--crate-type",
+                "cdylib",
+                "--target",
+                "wasm32-wasip1",
+                "-O",
+                "-o",
+                wasm_path
+                    .to_str()
+                    .expect("temp wasm path should be valid utf-8"),
+            ])
+            .output()
+            .expect("failed to invoke rustc");
+
+        if !output.status.success() {
+            panic!(
+                "failed to compile wasi p1 module: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        let wasm = fs::read(&wasm_path).expect("failed to read compiled wasm module");
+        cleanup_temp_dir(root);
+        wasm
+    }
+
+    fn cleanup_temp_dir(path: PathBuf) {
+        if let Err(err) = fs::remove_dir_all(&path) {
+            eprintln!("failed to remove temp dir {}: {err}", path.display());
+        }
     }
 }

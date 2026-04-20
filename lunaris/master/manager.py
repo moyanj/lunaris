@@ -24,6 +24,7 @@ from lunaris.master.model import (
 from lunaris.master.store_base import StateStore
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.proto.worker_pb2 import ControlCommand, NodeRegistration, NodeRegistrationReply, NodeStatus
+from lunaris.runtime.capabilities import normalize_host_capabilities
 from lunaris.utils import proto2bytes
 
 
@@ -34,7 +35,7 @@ class Worker:
     node_id: str = field(default_factory=lambda: secrets.token_hex(16))
     last_heartbeat: datetime = field(default_factory=datetime.now)
     status: Optional[NodeStatus] = None
-    current_tasks: List[str] = field(default_factory=list)
+    current_tasks: List[int] = field(default_factory=list)
     drain: bool = False
 
     def to_dict(self) -> dict:
@@ -52,14 +53,17 @@ class Worker:
                 "arch": self.registration.arch,
                 "max_concurrency": self.registration.max_concurrency,
                 "memory_size": self.registration.memory_size,
+                "provided_capabilities": list(
+                    self.registration.provided_capabilities.items
+                ),
             },
         }
 
-    def add_task(self, task_id: str) -> None:
+    def add_task(self, task_id: int) -> None:
         if task_id not in self.current_tasks:
             self.current_tasks.append(task_id)
 
-    def remove_task(self, task_id: str) -> None:
+    def remove_task(self, task_id: int) -> None:
         if task_id in self.current_tasks:
             self.current_tasks.remove(task_id)
 
@@ -70,6 +74,11 @@ class Worker:
     @property
     def available_slots(self) -> int:
         return max(0, self.registration.max_concurrency - self.current_load)
+
+    def supports(self, required_capabilities: list[str]) -> bool:
+        return set(required_capabilities).issubset(
+            set(self.registration.provided_capabilities.items)
+        )
 
 
 class WorkerManager:
@@ -99,6 +108,11 @@ class WorkerManager:
         await self.notify_scheduler("worker.capacity_changed")
 
     async def register(self, ws: WebSocket, registration: NodeRegistration) -> None:
+        provided_capabilities = normalize_host_capabilities(
+            registration.provided_capabilities.items
+        )
+        del registration.provided_capabilities.items[:]
+        registration.provided_capabilities.items.extend(provided_capabilities)
         worker = Worker(ws, registration)
         logger.info("Registering worker: {}", registration.name)
         self.workers.append(worker)
@@ -112,6 +126,7 @@ class WorkerManager:
             drain=False,
             capacity_used=0,
             current_tasks=[],
+            provided_capabilities=provided_capabilities,
             connected=True,
             last_heartbeat=worker.last_heartbeat,
         )
@@ -136,13 +151,17 @@ class WorkerManager:
                 return worker
         return None
 
-    def get_available_worker_nowait(self) -> Optional[Worker]:
+    def get_available_worker_nowait(
+        self, required_capabilities: Optional[list[str]] = None
+    ) -> Optional[Worker]:
+        required_capabilities = required_capabilities or []
         available_workers = [
             worker
             for worker in self.workers
             if worker.websocket.client_state == WebSocketState.CONNECTED
             and not worker.drain
             and worker.available_slots > 0
+            and worker.supports(required_capabilities)
         ]
         if not available_workers:
             return None
@@ -264,14 +283,14 @@ class TaskManager:
         self.store = store
         self.notify_scheduler = notify_scheduler
         self.task_queue: asyncio.PriorityQueue[Task] = asyncio.PriorityQueue()
-        self._queued_task_ids: set[str] = set()
-        self._tasks_dict: Dict[str, Task] = self.store.tasks
+        self._queued_task_ids: set[int] = set()
+        self._tasks_dict: Dict[int, Task] = self.store.tasks
         self.attempts: Dict[str, TaskAttempt] = self.store.attempts
-        self.running_tasks: Dict[str, Task] = {}
+        self.running_tasks: Dict[int, Task] = {}
         self.result = deque(maxlen=1024)
         self.lease_timeout = timedelta(seconds=lease_timeout_seconds)
         self.retry_delay_seconds = retry_delay_seconds
-        self.subscribers: dict[str, set[WebSocket]] = defaultdict(set)
+        self.subscribers: dict[int, set[WebSocket]] = defaultdict(set)
         self._recovery_dirty = self._recover_state()
 
     async def _record_event(
@@ -390,7 +409,7 @@ class TaskManager:
             if current and current.status == TaskStatus.QUEUED:
                 return current
 
-    def get_task(self, task_id: str) -> Optional[Task]:
+    def get_task(self, task_id: int) -> Optional[Task]:
         return self._tasks_dict.get(task_id)
 
     def all(self) -> List[Task]:
@@ -402,10 +421,10 @@ class TaskManager:
     def get_tasks_by_worker(self, worker_id: str) -> List[Task]:
         return [task for task in self._tasks_dict.values() if task.assigned_worker == worker_id]
 
-    def subscribe(self, task_id: str, ws: WebSocket) -> None:
+    def subscribe(self, task_id: int, ws: WebSocket) -> None:
         self.subscribers[task_id].add(ws)
 
-    def unsubscribe(self, task_id: str, ws: Optional[WebSocket] = None) -> None:
+    def unsubscribe(self, task_id: int, ws: Optional[WebSocket] = None) -> None:
         if task_id not in self.subscribers:
             return
         if ws is None:
@@ -419,10 +438,10 @@ class TaskManager:
         for task_id in list(self.subscribers):
             self.unsubscribe(task_id, ws)
 
-    def get_task_events(self, task_id: str, after_seq: int = 0) -> list[dict]:
+    def get_task_events(self, task_id: int, after_seq: int = 0) -> list[dict]:
         return [event.to_dict() for event in self.store.get_task_events(task_id, after_seq)]
 
-    def get_task_result(self, task_id: str) -> Optional[dict]:
+    def get_task_result(self, task_id: int) -> Optional[dict]:
         task = self.get_task(task_id)
         if not task or not task.result:
             return None
@@ -432,7 +451,7 @@ class TaskManager:
             **task.result.to_dict(),
         }
 
-    async def cancel_task(self, task_id: str) -> Optional[Task]:
+    async def cancel_task(self, task_id: int) -> Optional[Task]:
         task = self.get_task(task_id)
         if not task or task.is_terminal:
             return task
@@ -487,8 +506,8 @@ class TaskManager:
             payload={"attempt": task.attempt_count},
         )
 
-    async def requeue_worker_tasks(self, worker: Worker, reason: str = "") -> List[str]:
-        requeued_task_ids: List[str] = []
+    async def requeue_worker_tasks(self, worker: Worker, reason: str = "") -> List[int]:
+        requeued_task_ids: List[int] = []
         for task_id in worker.current_tasks[:]:
             task = self.get_task(task_id)
             if not task:
@@ -528,12 +547,12 @@ class TaskManager:
                 len(requeued_task_ids),
                 worker.node_id,
                 reason or "unknown reason",
-                ", ".join(requeued_task_ids),
+                ", ".join(str(task_id) for task_id in requeued_task_ids),
             )
             await self.notify_scheduler("worker.tasks_requeued")
         return requeued_task_ids
 
-    async def mark_task_running(self, task_id: str, worker: Worker, attempt: int) -> Optional[Task]:
+    async def mark_task_running(self, task_id: int, worker: Worker, attempt: int) -> Optional[Task]:
         task = self.running_tasks.get(task_id)
         if not task:
             logger.warning("Received task acceptance for unknown task: {}", task_id)
@@ -569,8 +588,8 @@ class TaskManager:
         await self.notify_scheduler("task.running")
         return task
 
-    async def requeue_expired_leases(self, worker_manager: WorkerManager) -> List[str]:
-        expired_task_ids: List[str] = []
+    async def requeue_expired_leases(self, worker_manager: WorkerManager) -> List[int]:
+        expired_task_ids: List[int] = []
         now = datetime.now()
         for task in list(self.running_tasks.values()):
             if task.status != TaskStatus.LEASED or not task.lease_expires_at:
@@ -595,7 +614,7 @@ class TaskManager:
             logger.warning(
                 "Requeued {} task(s) after lease expiry: {}",
                 len(expired_task_ids),
-                ", ".join(expired_task_ids),
+                ", ".join(str(task_id) for task_id in expired_task_ids),
             )
             await self.notify_scheduler("task.lease_expired")
         return expired_task_ids
@@ -675,7 +694,7 @@ class TaskManager:
             self.result.append(terminal_result)
             await self._notify_subscribers(task.task_id, terminal_result)
 
-    async def _notify_subscribers(self, task_id: str, result: TaskResult) -> None:
+    async def _notify_subscribers(self, task_id: int, result: TaskResult) -> None:
         subscribers = list(self.subscribers.get(task_id, set()))
         if not subscribers:
             return
@@ -691,8 +710,8 @@ class TaskManager:
         for ws in dead_subscribers:
             self.unsubscribe(task_id, ws)
 
-    async def process_retry_queue(self) -> List[str]:
-        ready: List[str] = []
+    async def process_retry_queue(self) -> List[int]:
+        ready: List[int] = []
         now = datetime.now()
         for task in self._tasks_dict.values():
             if task.status != TaskStatus.RETRY_WAIT:

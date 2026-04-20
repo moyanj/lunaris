@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from wasmtime import Config, Engine, Store, WasiConfig, Module, Linker
 import tempfile
 
+from lunaris.runtime.capabilities import HostContext, REGISTRY, normalize_host_capabilities
 from lunaris.runtime.limits import ExecutionLimits
 
 
@@ -31,9 +32,10 @@ class WasmSandbox:
         module_code: bytes,
         *args,
         entry: str = "main",
-        env: dict[str, str] = {},
-        wasi_args: dict[str, str] = {},
+        env: dict[str, str] | None = None,
+        wasi_args: list[str] | None = None,
         execution_limits: ExecutionLimits | None = None,
+        host_capabilities: list[str] | None = None,
     ) -> WasmResult:
         """
         执行 Wasm 模块，并返回结果。
@@ -57,9 +59,8 @@ class WasmSandbox:
         if limits.max_fuel > 0:
             store.set_fuel(limits.max_fuel)
         wasi = WasiConfig()
-
-        wasi.env = env
-        wasi.argv = wasi_args
+        wasi.env = list((env or {}).items())
+        wasi.argv = list(wasi_args or [])
 
         fd, stdout_temp = tempfile.mkstemp()
         os.close(fd)
@@ -68,6 +69,13 @@ class WasmSandbox:
         os.close(fd)
         wasi.stderr_file = stderr_temp
         store.set_wasi(wasi)
+        normalized_capabilities = normalize_host_capabilities(host_capabilities)
+        REGISTRY.register_all(
+            linker,
+            store,
+            HostContext(enabled_capabilities=frozenset(normalized_capabilities)),
+            normalized_capabilities,
+        )
 
         instance = linker.instantiate(store, module)
         main_func = instance.exports(store)[entry]

@@ -254,11 +254,26 @@ async def distribute_tasks(state: AppState):
         reason = await state.scheduler_events.get()
         logger.debug("Scheduler awakened by {}", reason)
         while True:
-            worker = state.worker_manager.get_available_worker_nowait()
-            if not worker:
-                break
-            task: Optional[Task] = state.task_manager.pop_next_queued_task_nowait()
-            if not task:
+            deferred: list[Task] = []
+            task: Optional[Task] = None
+            worker = None
+            while True:
+                candidate = state.task_manager.pop_next_queued_task_nowait()
+                if not candidate:
+                    break
+                candidate_worker = state.worker_manager.get_available_worker_nowait(
+                    candidate.host_capabilities
+                )
+                if candidate_worker:
+                    task = candidate
+                    worker = candidate_worker
+                    break
+                deferred.append(candidate)
+
+            for deferred_task in deferred:
+                state.task_manager._enqueue_task(deferred_task)
+
+            if not task or not worker:
                 break
 
             logger.info(f"Distributing task {task.task_id} to {worker.registration.name}")
@@ -280,6 +295,9 @@ async def distribute_tasks(state: AppState):
                             wasi_env=task.wasi_env,
                             execution_limits=task.execution_limits,
                             attempt=task.attempt_count,
+                            host_capabilities={
+                                "items": task.host_capabilities,
+                            },
                         ),
                         Envelope.MessageType.TASK,
                     )
