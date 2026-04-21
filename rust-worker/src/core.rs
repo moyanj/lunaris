@@ -5,12 +5,12 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{mpsc, Mutex};
 use tokio::time::interval;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info};
 
-use crate::capabilities::DEFAULT_PROVIDED_CAPABILITIES;
+use crate::capabilities::CapabilityRegistry;
 use crate::engine::{Runner, WasmResult};
 use crate::proto::common::envelope::MessageType;
 use crate::proto::{self, common, worker};
@@ -92,9 +92,10 @@ impl Worker {
             memory_size: (sysinfo::System::new_all().total_memory() / 1024 / 1024) as u64,
             token: self.token.clone(),
             provided_capabilities: Some(common::HostCapabilities {
-                items: DEFAULT_PROVIDED_CAPABILITIES
+                items: CapabilityRegistry::new()
+                    .available_names()
                     .iter()
-                    .map(|capability| capability.to_string())
+                    .map(|s| s.to_string())
                     .collect(),
             }),
         };

@@ -1,14 +1,14 @@
-use anyhow::{Result, anyhow};
-use serde_json::{Value, from_str, json};
+use anyhow::{anyhow, Result};
+use serde_json::{from_str, json, Value};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use tokio::sync::{Semaphore, mpsc};
+use tokio::sync::{mpsc, Semaphore};
 use wasmtime::*;
-use wasmtime_wasi::{WasiCtx, p1::WasiP1Ctx, p2::pipe::MemoryOutputPipe};
+use wasmtime_wasi::{p1::WasiP1Ctx, p2::pipe::MemoryOutputPipe, WasiCtx};
 
-use crate::capabilities::{CapabilityHostState, register_capabilities};
+use crate::capabilities::{CapabilityHostState, CapabilityRegistry};
 use crate::proto::{common::ExecutionLimits, worker};
 
 pub struct WasmResult {
@@ -65,9 +65,7 @@ impl Runner {
     ) -> Self {
         let semaphore = Arc::new(Semaphore::new(max_workers));
         let mut config = Config::new();
-        if max_limits.max_fuel > 0 {
-            config.consume_fuel(true);
-        }
+        config.consume_fuel(true);
 
         let engine = Engine::new(&config).expect("failed to create wasmtime engine");
 
@@ -163,7 +161,11 @@ fn run_wasm(
     let module = Module::new(wasm_engine, code)?;
     let mut linker = Linker::new(wasm_engine);
     wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s: &mut HostState| &mut s.wasi)?;
-    register_capabilities(&mut linker, host_capabilities)?;
+
+    // Register enabled capabilities
+    let enabled_set: HashSet<String> = host_capabilities.iter().cloned().collect();
+    let registry = CapabilityRegistry::new();
+    registry.register_capabilities(&mut linker, &enabled_set)?;
 
     let stdout = MemoryOutputPipe::new(512);
     let stderr = MemoryOutputPipe::new(512);
@@ -189,6 +191,8 @@ fn run_wasm(
     store.limiter(|state| &mut state.limits);
     if limits.max_fuel > 0 {
         store.set_fuel(limits.max_fuel)?;
+    } else {
+        store.set_fuel(u64::MAX)?;
     }
 
     let instance = linker.instantiate(&mut store, &module)?;
@@ -428,6 +432,26 @@ pub extern "C" fn wmain() -> i32 {
         assert!(result.succeeded);
         assert_eq!(result.result, "0");
         assert!(String::from_utf8_lossy(&result.stderr).contains("fs_error="));
+    }
+
+    #[test]
+    fn unlimited_tasks_still_run_when_fuel_metering_is_enabled() {
+        let wasm = compile_wasi_p1_rust(WASI_P1_STDIO_ENV_ARGS);
+        let engine = test_engine();
+        let mut env = HashMap::new();
+        env.insert("LUNARIS_WASI_P1".to_string(), "preview1".to_string());
+        let args = vec!["lunaris-test".to_string(), "alpha".to_string()];
+        let limits = ExecutionLimits {
+            max_fuel: 0,
+            max_memory_bytes: 16 * 1024 * 1024,
+            max_module_bytes: 4 * 1024 * 1024,
+        };
+
+        let result = run_wasm(&engine, &wasm, "[]", "wmain", &env, &args, &limits, &[])
+            .expect("run_wasm should succeed without an explicit fuel limit");
+
+        assert!(result.succeeded);
+        assert_eq!(result.result, "42");
     }
 
     fn test_engine() -> Engine {
