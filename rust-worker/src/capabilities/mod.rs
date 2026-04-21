@@ -28,6 +28,68 @@ pub mod simd;
 
 pub use registry::CapabilityRegistry;
 
+macro_rules! register_capability_functions {
+    (
+        $linker:expr,
+        $capability:literal;
+        $(
+            $name:literal($caller:ident : Caller<'_, $t:ident> $(, $arg:ident : $arg_ty:ty)*) -> $ret:ty $body:block
+        );+ $(;)?
+    ) => {{
+        $(
+            $linker.func_wrap(
+                concat!("lunaris:", $capability),
+                $name,
+                |$caller: wasmtime::Caller<'_, $t>, $($arg: $arg_ty),*| -> anyhow::Result<$ret> {
+                    $crate::capabilities::require_capability(&$caller, $capability)?;
+                    $body
+                },
+            )?;
+        )+
+        anyhow::Result::<()>::Ok(())
+    }};
+}
+
+pub(crate) use register_capability_functions;
+
+macro_rules! define_capability_registry {
+    ($($feature:literal => $capability:path),+ $(,)?) => {
+        /// Register all enabled capabilities into the linker.
+        ///
+        /// # Arguments
+        /// * `linker` - Wasmtime linker to register functions into
+        /// * `enabled_capabilities` - Set of capabilities the task has requested
+        ///
+        /// # Returns
+        /// Ok(()) if registration succeeded
+        pub fn register_capabilities<T: CapabilityHostState + Send + 'static>(
+            &self,
+            linker: &mut Linker<T>,
+            enabled_capabilities: &HashSet<String>,
+        ) -> anyhow::Result<()> {
+            $(
+                #[cfg(feature = $feature)]
+                if enabled_capabilities.contains(<$capability as Capability>::NAME) {
+                    <$capability as Capability>::register(linker)?;
+                }
+            )+
+            Ok(())
+        }
+
+        /// Get list of all available capability names (for worker registration).
+        pub fn available_names(&self) -> Vec<&'static str> {
+            let mut names = Vec::new();
+            $(
+                #[cfg(feature = $feature)]
+                names.push(<$capability as Capability>::NAME);
+            )+
+            names
+        }
+    };
+}
+
+pub(crate) use define_capability_registry;
+
 /// Trait that provides access to enabled capabilities.
 /// Implemented by the host state to enable capability checks.
 pub trait CapabilityHostState {

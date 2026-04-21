@@ -4,43 +4,27 @@
 //! Provides `lunaris:simd/ping` function.
 
 use anyhow::Result;
-use wasmtime::{Caller, Linker};
+use wasmtime::Linker;
 
-use super::{require_capability, Capability, CapabilityHostState};
-
-/// Capability name
-pub const NAME: &str = "simd";
+use super::{register_capability_functions, Capability, CapabilityHostState};
 
 /// SIMD capability implementation
 pub struct SimdCapability;
 
 impl Capability for SimdCapability {
-    const NAME: &'static str = NAME;
+    const NAME: &'static str = "simd";
 
     fn register<T: CapabilityHostState + Send + 'static>(linker: &mut Linker<T>) -> Result<()> {
-        // lunaris:simd/ping() -> i32
-        // Returns 1 if capability is available
-        linker.func_wrap(
-            "lunaris:simd",
-            "ping",
-            |caller: Caller<'_, T>| -> Result<i32> {
-                require_capability(&caller, NAME)?;
+        register_capability_functions! {
+            linker,
+            "simd";
+            "ping"(caller: Caller<'_, T>) -> i32 {
                 Ok(1)
-            },
-        )?;
-
-        // lunaris:simd/add(a: i32, b: i32) -> i32
-        // Simple addition for testing
-        linker.func_wrap(
-            "lunaris:simd",
-            "add",
-            |caller: Caller<'_, T>, a: i32, b: i32| -> Result<i32> {
-                require_capability(&caller, NAME)?;
+            };
+            "add"(caller: Caller<'_, T>, a: i32, b: i32) -> i32 {
                 Ok(a.wrapping_add(b))
-            },
-        )?;
-
-        Ok(())
+            }
+        }
     }
 }
 

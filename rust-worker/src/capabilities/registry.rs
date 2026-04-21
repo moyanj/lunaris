@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use wasmtime::Linker;
 
-use super::{Capability, CapabilityHostState};
+use super::{define_capability_registry, Capability, CapabilityHostState};
 #[cfg(feature = "simd")]
 use crate::capabilities::simd;
 
@@ -18,33 +18,8 @@ impl CapabilityRegistry {
     pub fn new() -> Self {
         Self
     }
-
-    /// Register all enabled capabilities into the linker.
-    ///
-    /// # Arguments
-    /// * `linker` - Wasmtime linker to register functions into
-    /// * `enabled_capabilities` - Set of capabilities the task has requested
-    ///
-    /// # Returns
-    /// Ok(()) if registration succeeded
-    pub fn register_capabilities<T: CapabilityHostState + Send + 'static>(
-        &self,
-        linker: &mut Linker<T>,
-        enabled_capabilities: &HashSet<String>,
-    ) -> anyhow::Result<()> {
-        #[cfg(feature = "simd")]
-        if enabled_capabilities.contains(<simd::SimdCapability as Capability>::NAME) {
-            simd::SimdCapability::register(linker)?;
-        }
-        Ok(())
-    }
-
-    /// Get list of all available capability names (for worker registration).
-    pub fn available_names(&self) -> Vec<&'static str> {
-        let mut names = Vec::new();
-        #[cfg(feature = "simd")]
-        names.push(<simd::SimdCapability as Capability>::NAME);
-        names
+    define_capability_registry! {
+        "simd" => simd::SimdCapability
     }
 }
 
