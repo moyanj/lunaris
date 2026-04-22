@@ -11,6 +11,11 @@ use wasmtime_wasi::{p1::WasiP1Ctx, p2::pipe::MemoryOutputPipe, WasiCtx};
 use crate::capabilities::{CapabilityHostState, CapabilityRegistry};
 use crate::proto::{common::ExecutionLimits, worker};
 
+const INJECTED_TASK_ID_ENV: &str = "LUNARIS_TASK_ID";
+const INJECTED_WORKER_VERSION_ENV: &str = "LUNARIS_WORKER_VERSION";
+const INJECTED_HOST_CAPABILITIES_ENV: &str = "LUNARIS_HOST_CAPABILITIES";
+const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub struct WasmResult {
     pub result: String,
     pub stdout: Vec<u8>,
@@ -110,6 +115,7 @@ impl Runner {
                 &code,
                 &args_json,
                 &entry,
+                task_id,
                 &wasi_env,
                 &wasi_args,
                 &limits,
@@ -145,6 +151,7 @@ fn run_wasm(
     code: &[u8],
     args_json: &str,
     entry: &str,
+    task_id: u64,
     env: &HashMap<String, String>,
     args: &Vec<String>,
     limits: &ExecutionLimits,
@@ -169,12 +176,23 @@ fn run_wasm(
 
     let stdout = MemoryOutputPipe::new(512);
     let stderr = MemoryOutputPipe::new(512);
+    let mut wasi_env = env.clone();
+    wasi_env.insert(INJECTED_TASK_ID_ENV.to_string(), task_id.to_string());
+    wasi_env.insert(
+        INJECTED_WORKER_VERSION_ENV.to_string(),
+        WORKER_VERSION.to_string(),
+    );
+    wasi_env.insert(
+        INJECTED_HOST_CAPABILITIES_ENV.to_string(),
+        serde_json::to_string(host_capabilities)?,
+    );
 
     let wasi = WasiCtx::builder()
         .stdout(stdout.clone())
         .stderr(stderr.clone())
         .envs(
-            &env.iter()
+            &wasi_env
+                .iter()
                 .map(|(k, v)| (k.as_str(), v.as_str()))
                 .collect::<Vec<_>>(),
         )
@@ -393,6 +411,28 @@ pub extern "C" fn wmain() -> i32 {
 }
 "#;
 
+    const WASI_P1_INJECTED_ENV: &str = r#"
+#[no_mangle]
+pub extern "C" fn wmain() -> i32 {
+    let task_id = std::env::var("LUNARIS_TASK_ID").unwrap_or_else(|_| "missing".to_string());
+    let worker_version = std::env::var("LUNARIS_WORKER_VERSION").unwrap_or_else(|_| "missing".to_string());
+    let host_capabilities = std::env::var("LUNARIS_HOST_CAPABILITIES").unwrap_or_else(|_| "missing".to_string());
+
+    println!("task_id={task_id}");
+    println!("worker_version={worker_version}");
+    println!("host_capabilities={host_capabilities}");
+
+    if task_id == "42"
+        && worker_version == env!("CARGO_PKG_VERSION")
+        && host_capabilities == "[\"simd\"]"
+    {
+        7
+    } else {
+        -1
+    }
+}
+"#;
+
     #[test]
     fn supports_stdio_env_and_args() {
         let wasm = compile_wasi_p1_rust(WASI_P1_STDIO_ENV_ARGS);
@@ -402,7 +442,7 @@ pub extern "C" fn wmain() -> i32 {
         let args = vec!["lunaris-test".to_string(), "alpha".to_string()];
         let limits = test_limits();
 
-        let result = run_wasm(&engine, &wasm, "[]", "wmain", &env, &args, &limits, &[])
+        let result = run_wasm(&engine, &wasm, "[]", "wmain", 1, &env, &args, &limits, &[])
             .expect("run_wasm should succeed");
 
         assert!(result.succeeded);
@@ -422,6 +462,7 @@ pub extern "C" fn wmain() -> i32 {
             &wasm,
             "[]",
             "wmain",
+            1,
             &HashMap::new(),
             &vec!["lunaris-test".to_string()],
             &limits,
@@ -432,6 +473,33 @@ pub extern "C" fn wmain() -> i32 {
         assert!(result.succeeded);
         assert_eq!(result.result, "0");
         assert!(String::from_utf8_lossy(&result.stderr).contains("fs_error="));
+    }
+
+    #[test]
+    fn injects_task_metadata_into_wasi_env() {
+        let wasm = compile_wasi_p1_rust(WASI_P1_INJECTED_ENV);
+        let engine = test_engine();
+        let limits = test_limits();
+
+        let result = run_wasm(
+            &engine,
+            &wasm,
+            "[]",
+            "wmain",
+            42,
+            &HashMap::new(),
+            &vec!["lunaris-test".to_string()],
+            &limits,
+            &["simd".to_string()],
+        )
+        .expect("run_wasm should succeed");
+
+        assert!(result.succeeded);
+        assert_eq!(result.result, "7");
+        let stdout = String::from_utf8_lossy(&result.stdout);
+        assert!(stdout.contains("task_id=42"));
+        assert!(stdout.contains(&format!("worker_version={}", env!("CARGO_PKG_VERSION"))));
+        assert!(stdout.contains("host_capabilities=[\"simd\"]"));
     }
 
     #[test]
@@ -447,7 +515,7 @@ pub extern "C" fn wmain() -> i32 {
             max_module_bytes: 4 * 1024 * 1024,
         };
 
-        let result = run_wasm(&engine, &wasm, "[]", "wmain", &env, &args, &limits, &[])
+        let result = run_wasm(&engine, &wasm, "[]", "wmain", 1, &env, &args, &limits, &[])
             .expect("run_wasm should succeed without an explicit fuel limit");
 
         assert!(result.succeeded);
