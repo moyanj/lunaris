@@ -325,7 +325,7 @@ fn define_env_memory_if_imported(
         ));
     }
 
-    let memory = Memory::new(store, memory_ty)?;
+    let memory = Memory::new(&mut *store, memory_ty)?;
     linker.define(&mut *store, "env", "memory", memory)?;
     Ok(())
 }
