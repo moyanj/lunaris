@@ -212,8 +212,10 @@ fn run_wasm(
     } else {
         store.set_fuel(u64::MAX)?;
     }
+    define_env_memory_if_imported(&module, &mut linker, &mut store, limits)?;
 
     let instance = linker.instantiate(&mut store, &module)?;
+    initialize_guest_if_present(&instance, &mut store)?;
 
     // Parse JSON arguments
     let json_value: Value = from_str(args_json)?;
@@ -272,6 +274,60 @@ fn run_wasm(
         time,
         succeeded: true,
     })
+}
+
+fn initialize_guest_if_present(instance: &Instance, store: &mut Store<HostState>) -> Result<()> {
+    let Some(initialize) = instance.get_func(&mut *store, "_initialize") else {
+        return Ok(());
+    };
+
+    let initialize_ty = initialize.ty(&mut *store);
+    if initialize_ty.params().len() != 0 || initialize_ty.results().len() != 0 {
+        return Err(anyhow!(
+            "Function '_initialize' must have signature () -> ()"
+        ));
+    }
+
+    let mut results = [];
+    initialize.call(store, &[], &mut results)?;
+    Ok(())
+}
+
+fn define_env_memory_if_imported(
+    module: &Module,
+    linker: &mut Linker<HostState>,
+    store: &mut Store<HostState>,
+    limits: &ExecutionLimits,
+) -> Result<()> {
+    let mut imported_memory = None;
+    for import in module.imports() {
+        if import.module() == "env" && import.name() == "memory" {
+            if let ExternType::Memory(memory_ty) = import.ty() {
+                imported_memory = Some(memory_ty);
+            }
+            break;
+        }
+    }
+
+    let Some(memory_ty) = imported_memory else {
+        return Ok(());
+    };
+
+    let minimum_bytes = memory_ty
+        .minimum()
+        .checked_mul(65_536)
+        .ok_or_else(|| anyhow!("imported env::memory minimum is too large"))?;
+
+    if limits.max_memory_bytes > 0 && minimum_bytes > limits.max_memory_bytes {
+        return Err(anyhow!(
+            "imported env::memory minimum size of {} pages exceeds memory limits",
+            memory_ty.minimum()
+        ));
+    }
+
+    let memory = Memory::new(store, memory_ty)?;
+    linker.define(&mut *store, "env", "memory", memory)?;
+    Ok(())
 }
 
 struct HostState {
@@ -433,6 +489,30 @@ pub extern "C" fn wmain() -> i32 {
 }
 "#;
 
+    const REACTOR_INITIALIZE_WAT: &str = r#"
+(module
+  (global $ready (mut i32) (i32.const 0))
+  (func (export "_initialize")
+    i32.const 1
+    global.set $ready)
+  (func (export "wmain") (result i32)
+    global.get $ready))
+"#;
+
+    const IMPORTED_ENV_MEMORY_WAT: &str = r#"
+(module
+  (import "env" "memory" (memory 1))
+  (func (export "wmain") (result i32)
+    i32.const 42))
+"#;
+
+    const IMPORTED_ENV_MEMORY_TOO_LARGE_WAT: &str = r#"
+(module
+  (import "env" "memory" (memory 300))
+  (func (export "wmain") (result i32)
+    i32.const 1))
+"#;
+
     #[test]
     fn supports_stdio_env_and_args() {
         let wasm = compile_wasi_p1_rust(WASI_P1_STDIO_ENV_ARGS);
@@ -500,6 +580,77 @@ pub extern "C" fn wmain() -> i32 {
         assert!(stdout.contains("task_id=42"));
         assert!(stdout.contains(&format!("worker_version={}", env!("CARGO_PKG_VERSION"))));
         assert!(stdout.contains("host_capabilities=[\"simd\"]"));
+    }
+
+    #[test]
+    fn calls_initialize_before_entry_when_present() {
+        let engine = test_engine();
+        let limits = test_limits();
+
+        let result = run_wasm(
+            &engine,
+            REACTOR_INITIALIZE_WAT.as_bytes(),
+            "[]",
+            "wmain",
+            1,
+            &HashMap::new(),
+            &vec![],
+            &limits,
+            &[],
+        )
+        .expect("run_wasm should succeed");
+
+        assert!(result.succeeded);
+        assert_eq!(result.result, "1");
+    }
+
+    #[test]
+    fn supports_modules_that_import_env_memory() {
+        let engine = test_engine();
+        let limits = test_limits();
+
+        let result = run_wasm(
+            &engine,
+            IMPORTED_ENV_MEMORY_WAT.as_bytes(),
+            "[]",
+            "wmain",
+            1,
+            &HashMap::new(),
+            &vec![],
+            &limits,
+            &[],
+        )
+        .expect("run_wasm should succeed");
+
+        assert!(result.succeeded);
+        assert_eq!(result.result, "42");
+    }
+
+    #[test]
+    fn rejects_imported_env_memory_that_exceeds_limits() {
+        let engine = test_engine();
+        let limits = ExecutionLimits {
+            max_fuel: 1_000_000,
+            max_memory_bytes: 16 * 1024 * 1024,
+            max_module_bytes: 4 * 1024 * 1024,
+        };
+
+        let error = run_wasm(
+            &engine,
+            IMPORTED_ENV_MEMORY_TOO_LARGE_WAT.as_bytes(),
+            "[]",
+            "wmain",
+            1,
+            &HashMap::new(),
+            &vec![],
+            &limits,
+            &[],
+        )
+        .expect_err("run_wasm should reject oversized imported memory");
+
+        assert!(error
+            .to_string()
+            .contains("imported env::memory minimum size of 300 pages exceeds memory limits"));
     }
 
     #[test]

@@ -65,6 +65,7 @@ nav:
       - 异步客户端: sdk/async-client.md
       - 同步客户端: sdk/sync-client.md
       - 示例: sdk/examples.md
+      - WASM Guest SDK: sdk/wasm-guest.md
   - CLI 参考:
       - 概述: cli/overview.md
   - 部署:
