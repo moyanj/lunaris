@@ -14,7 +14,7 @@
 | 同步封装 | `sync.py:12` | `SyncLunarisClient`（线程 + asyncio循环） |
 | 回调提交 | `client.py:53` | `submit_task(callback=...)` |
 | 等待结果 | `client.py:421` | `wait_for_task(task_id, timeout)` |
-| 源码编译 | `utils.py` | `compile_source`, `compile_c/rust/go/zig` |
+| 源码编译 | `utils.py` | `compile_source`, `compile_c/cxx/zig/rust/go/assemblyscript/grain` |
 | 编译器检测 | `utils.py` | `check_wasi_sdk`, `check_rustc`, `HAS_*` 全局变量 |
 | REST回退 | `client.py:333` | `_get_rest_data` 状态查询 |
 | **请求ID匹配** | `client.py` | `request_id`, `_create_futures` 字典 |
@@ -44,7 +44,7 @@
 - 适用于重试场景，避免创建重复任务
 
 ### 源码编译
-- `submit_c/cxx/zig/rust/go`：`submit_source(language, code)` 的简写
+- `submit_c/cxx/zig/rust/go/assemblyscript/grain`：`submit_source(language, code)` 的简写
 - 本地编译，WASM字节码发送到主节点
 - 全局 `HAS_*` 标志缓存编译器可用性
 

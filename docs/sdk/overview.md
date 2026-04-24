@@ -187,6 +187,20 @@ func wmain() {
 }
 '''
 task_id = await client.submit_go(go_code)
+
+# AssemblyScript 代码
+assemblyscript_code = '''
+export function wmain(a: i32, b: i32): i32 {
+    return a + b;
+}
+'''
+task_id = await client.submit_assemblyscript(assemblyscript_code, args=[1, 2])
+
+# Grain 代码
+grain_code = '''
+export let wmain = (a: Int32, b: Int32): Int32 => a + b
+'''
+task_id = await client.submit_grain(grain_code, args=[1, 2])
 ```
 
 ### 幂等性

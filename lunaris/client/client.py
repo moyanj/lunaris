@@ -265,6 +265,56 @@ class LunarisClient:
             idempotency_key=idempotency_key,
         )
 
+    async def submit_assemblyscript(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> int:
+        return await self.submit_source(
+            "assemblyscript",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+            idempotency_key=idempotency_key,
+        )
+
+    async def submit_grain(
+        self,
+        source_code: str,
+        args: Optional[List[Any]] = None,
+        entry: str = "wmain",
+        priority: int = 0,
+        wasi_env: Optional[WasiEnv] = None,
+        execution_limits: Optional[ExecutionLimits] = None,
+        compile_options: Optional[CompileOptions] = None,
+        callback: Optional[Callable] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> int:
+        return await self.submit_source(
+            "grain",
+            source_code,
+            args=args,
+            entry=entry,
+            priority=priority,
+            wasi_env=wasi_env,
+            execution_limits=execution_limits,
+            compile_options=compile_options,
+            callback=callback,
+            idempotency_key=idempotency_key,
+        )
+
     async def submit_task_many(
         self,
         wasm_module: Union[bytes, str],

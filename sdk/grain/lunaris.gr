@@ -1,0 +1,69 @@
+from "wasi/process" include Process
+from "array" include Array
+from "string" include String
+from "number" include Number
+from "result" include Result
+from "exception" include Exception
+
+let taskIdEnv = "LUNARIS_TASK_ID"
+let workerVersionEnv = "LUNARIS_WORKER_VERSION"
+let hostCapabilitiesEnv = "LUNARIS_HOST_CAPABILITIES"
+
+export type TaskContext = {
+  taskId: Number,
+  workerVersion: String,
+  hostCapabilitiesJson: String,
+}
+
+let envValue = (name: String): Result<String, String> =>
+  Result.mapWithDefaultFn(
+    (vars) =>
+      match (Array.find((entry) => String.startsWith(name ++ "=", entry), vars)) {
+        Some(entry) => Ok(String.slice(String.length(name) + 1, entry)),
+        None => Err("missing Lunaris env: " ++ name),
+      },
+    (err) => Err("failed to read process env: " ++ Exception.toString(err)),
+    Process.env(),
+  )
+
+export let taskId = (): Result<Number, String> =>
+  Result.mapWithDefaultFn(
+    (raw) => Number.parseInt(raw, radix=10),
+    (err) => Err(err),
+    envValue(taskIdEnv),
+  )
+
+export let workerVersion = (): Result<String, String> =>
+  envValue(workerVersionEnv)
+
+export let hostCapabilitiesJson = (): Result<String, String> =>
+  envValue(hostCapabilitiesEnv)
+
+export let hasCapability = (name: String): Bool =>
+  Result.mapWithDefault(
+    (raw) => String.contains("\"" ++ name ++ "\"", raw),
+    false,
+    hostCapabilitiesJson(),
+  )
+
+export let currentContext = (): Result<TaskContext, String> =>
+  Result.mapWithDefaultFn(
+    (taskIdValue) =>
+      Result.mapWithDefaultFn(
+        (workerVersionValue) =>
+          Result.mapWithDefault(
+            (capabilitiesValue) => Ok({
+              taskId: taskIdValue,
+              workerVersion: workerVersionValue,
+              hostCapabilitiesJson: capabilitiesValue,
+            }),
+            Err("failed to load Lunaris host capabilities"),
+            hostCapabilitiesJson(),
+          ),
+        (err) => Err(err),
+        workerVersion(),
+      ),
+    (err) => Err(err),
+    taskId(),
+  )
+

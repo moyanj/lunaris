@@ -1,6 +1,6 @@
 # WASM Guest SDK
 
-Lunaris 的 WASM Guest SDK 运行在被执行的 WASM 模块内部，面向 Rust、C/C++、Zig、Go 等会被编译到 `wasm32-wasip1` 的语言。
+Lunaris 的 WASM Guest SDK 运行在被执行的 WASM 模块内部，面向 Rust、C/C++、Zig、Go、AssemblyScript、Grain 等会被编译到 `wasm32-wasip1` 的语言。
 
 它与 Python 客户端 SDK 不同：
 
@@ -14,6 +14,8 @@ Lunaris 的 WASM Guest SDK 运行在被执行的 WASM 模块内部，面向 Rust
 - C++: `sdk/cpp/lunaris.hpp`
 - Zig: `sdk/zig/lunaris.zig`
 - Go: `sdk/go/lunaris.go`（experimental）
+- AssemblyScript: `sdk/assemblyscript/lunaris.ts`
+- Grain: `sdk/grain/lunaris.gr`（当前提供 context/capability helpers）
 
 ## 运行时约定
 
@@ -147,6 +149,37 @@ func wmain(a, b int32) int32 {
 }
 ```
 
+## AssemblyScript
+
+```ts
+import { TaskContext, simd } from "./lunaris";
+
+export function wmain(a: i32, b: i32): i32 {
+  const ctx = TaskContext.current();
+  if (ctx != null) {
+    if (simd.available()) {
+      const value = simd.addChecked(a, b);
+      if (value != null) return value;
+    }
+  }
+  return a + b;
+}
+```
+
+## Grain
+
+```grain
+from "./lunaris" include *
+from "result" include Result
+
+export let wmain = (a: Number, b: Number): Number =>
+  Result.mapWithDefault(
+    (ctx) => hasCapability("simd") ? a + b + (ctx.taskId % 2) : a + b,
+    a + b,
+    currentContext(),
+  )
+```
+
 ## API 范围
 
 第一版 Guest SDK 只做两类封装：
@@ -162,5 +195,9 @@ func wmain(a, b int32) int32 {
 - `has_capability`
 - `simd::ping`
 - `simd::add`
+
+当前例外：
+
+- Grain Guest SDK 暂未封装 `simd` host import，只提供上下文读取与 capability 检查
 
 后续新增能力组时，应继续遵守相同的字符串和命名约定。

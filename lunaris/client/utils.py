@@ -9,7 +9,7 @@ from typing import Literal, Optional, Sequence
 
 WASI_TARGET = "wasm32-wasip1"
 DEFAULT_TIMEOUT_SECONDS = 60
-SourceLanguage = Literal["c", "cxx", "zig", "rust", "go"]
+SourceLanguage = Literal["c", "cxx", "zig", "rust", "go", "assemblyscript", "grain"]
 
 HAS_WASI_SDK: Optional[bool] = None
 HAS_WASI_SDK_CXX: Optional[bool] = None
@@ -17,6 +17,7 @@ HAS_ZIG: Optional[bool] = None
 HAS_RUSTC: Optional[bool] = None
 HAS_TINY_GO: Optional[bool] = None
 HAS_GRAIN: Optional[bool] = None
+HAS_ASSEMBLYSCRIPT: Optional[bool] = None
 
 
 @dataclass
@@ -132,6 +133,12 @@ def check_grain() -> bool:
     global HAS_GRAIN
     HAS_GRAIN = _run_check(["grain", "--version"])
     return HAS_GRAIN
+
+
+def check_assemblyscript() -> bool:
+    global HAS_ASSEMBLYSCRIPT
+    HAS_ASSEMBLYSCRIPT = _run_check(["asc", "--version"])
+    return HAS_ASSEMBLYSCRIPT
 
 
 def _read_wasm_file(wasm_path: Path) -> bytes:
@@ -463,6 +470,65 @@ def compile_go(
     )
 
 
+def compile_assemblyscript(
+    code: str,
+    optimize_level: str = "2",
+    options: Optional[list[str]] = None,
+) -> bytes:
+    options = options or []
+    if HAS_ASSEMBLYSCRIPT is None:
+        check_assemblyscript()
+    if not HAS_ASSEMBLYSCRIPT:
+        raise RuntimeError("AssemblyScript compiler 'asc' is not available")
+
+    asc_optimize_level = optimize_level if optimize_level in {"0", "1", "2", "3"} else "2"
+    return _compile(
+        code,
+        [
+            "asc",
+            "{code_file}",
+            "--outFile",
+            "{wasm_file}",
+            f"-O{asc_optimize_level}",
+            "--runtime",
+            "stub",
+            "--use",
+            "abort=",
+            *options,
+        ],
+        "ts",
+    )
+
+
+def compile_grain(
+    code: str,
+    optimize_level: str = "2",
+    options: Optional[list[str]] = None,
+) -> bytes:
+    options = options or []
+    if HAS_GRAIN is None:
+        check_grain()
+    if not HAS_GRAIN:
+        raise RuntimeError("Grain compiler is not available")
+
+    grain_options = list(options)
+    if optimize_level in {"s", "z"}:
+        grain_options = ["--optimize"] + grain_options
+
+    return _compile(
+        code,
+        [
+            "grain",
+            "compile",
+            "{code_file}",
+            "-o",
+            "{wasm_file}",
+            *grain_options,
+        ],
+        "gr",
+    )
+
+
 def compile_source(
     language: SourceLanguage,
     code: str,
@@ -500,6 +566,18 @@ def compile_source(
         )
     if language == "go":
         return compile_go(
+            code,
+            optimize_level=compile_options.optimize_level,
+            options=compile_options.options,
+        )
+    if language == "assemblyscript":
+        return compile_assemblyscript(
+            code,
+            optimize_level=compile_options.optimize_level,
+            options=compile_options.options,
+        )
+    if language == "grain":
+        return compile_grain(
             code,
             optimize_level=compile_options.optimize_level,
             options=compile_options.options,

@@ -176,6 +176,42 @@ def submit_go(
 ) -> str: ...
 ```
 
+### submit_assemblyscript()
+
+提交 AssemblyScript 源代码。
+
+```python
+def submit_assemblyscript(
+    self,
+    source_code: str,
+    args: Optional[List[Any]] = None,
+    entry: str = "wmain",
+    priority: int = 0,
+    wasi_env: Optional[WasiEnv] = None,
+    execution_limits: Optional[ExecutionLimits] = None,
+    compile_options: Optional[CompileOptions] = None,
+    idempotency_key: Optional[str] = None,
+) -> str: ...
+```
+
+### submit_grain()
+
+提交 Grain 源代码。
+
+```python
+def submit_grain(
+    self,
+    source_code: str,
+    args: Optional[List[Any]] = None,
+    entry: str = "wmain",
+    priority: int = 0,
+    wasi_env: Optional[WasiEnv] = None,
+    execution_limits: Optional[ExecutionLimits] = None,
+    compile_options: Optional[CompileOptions] = None,
+    idempotency_key: Optional[str] = None,
+) -> str: ...
+```
+
 ### submit_zig()
 
 提交 Zig 源代码。
