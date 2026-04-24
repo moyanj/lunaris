@@ -74,20 +74,28 @@ class NodeStatus(_message.Message):
     def __init__(self, node_id: _Optional[str] = ..., status: _Optional[_Union[NodeStatus.NodeState, str]] = ..., current_task: _Optional[int] = ...) -> None: ...
 
 class NodeRegistration(_message.Message):
-    __slots__ = ("name", "arch", "max_concurrency", "memory_size", "token", "provided_capabilities")
+    __slots__ = ("name", "arch", "max_concurrency", "memory_size", "token", "provided_capabilities", "type")
+    class WorkerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        STANDARD: _ClassVar[NodeRegistration.WorkerType]
+        MCU: _ClassVar[NodeRegistration.WorkerType]
+    STANDARD: NodeRegistration.WorkerType
+    MCU: NodeRegistration.WorkerType
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARCH_FIELD_NUMBER: _ClassVar[int]
     MAX_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
     MEMORY_SIZE_FIELD_NUMBER: _ClassVar[int]
     TOKEN_FIELD_NUMBER: _ClassVar[int]
     PROVIDED_CAPABILITIES_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
     name: str
     arch: str
     max_concurrency: int
     memory_size: int
     token: str
     provided_capabilities: _common_pb2.HostCapabilities
-    def __init__(self, name: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., memory_size: _Optional[int] = ..., token: _Optional[str] = ..., provided_capabilities: _Optional[_Union[_common_pb2.HostCapabilities, _Mapping]] = ...) -> None: ...
+    type: NodeRegistration.WorkerType
+    def __init__(self, name: _Optional[str] = ..., arch: _Optional[str] = ..., max_concurrency: _Optional[int] = ..., memory_size: _Optional[int] = ..., token: _Optional[str] = ..., provided_capabilities: _Optional[_Union[_common_pb2.HostCapabilities, _Mapping]] = ..., type: _Optional[_Union[NodeRegistration.WorkerType, str]] = ...) -> None: ...
 
 class NodeRegistrationReply(_message.Message):
     __slots__ = ("node_id",)

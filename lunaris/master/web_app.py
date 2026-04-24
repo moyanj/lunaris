@@ -136,11 +136,13 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
             await ws.close()
             return
         if not registration.token == state.worker_token:
+            is_mcu = registration.type == NodeRegistration.WorkerType.MCU
             await ws.send_bytes(
                 proto2bytes(
                     ControlCommand(
                         type=ControlCommand.CommandType.SHUTDOWN, data="Invalid token"
-                    )
+                    ),
+                    compress=not is_mcu,
                 )
             )
             await ws.close()
@@ -310,6 +312,7 @@ async def distribute_tasks(state: AppState):
                             },
                         ),
                         Envelope.MessageType.TASK,
+                        compress=not worker.is_mcu,
                     )
                 )
             except Exception as exc:

@@ -55,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Connecting to master: {}", args.master);
     info!("Worker name: {}", name);
     info!("Max concurrency: {}", concurrency);
+    info!("Compression: {}", if args.no_compress { "disabled" } else { "enabled" });
 
     // 创建 Worker 实例
     let mut worker = Worker::new(
@@ -62,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
         &args.token,
         name,
         concurrency,
+        !args.no_compress,
         // 默认资源限制
         ExecutionLimits {
             max_fuel: args.default_max_fuel,

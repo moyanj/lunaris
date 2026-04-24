@@ -59,7 +59,14 @@ pub fn from_bytes(bytes: &[u8]) -> Result<(Vec<u8>, MessageType)> {
 
     // 解压缩（如果启用）
     let payload = if envelope.compressed {
-        zstd::decode_all(&envelope.payload[..]).context("Failed to decompress payload")?
+        #[cfg(feature = "zstd")]
+        {
+            zstd::decode_all(&envelope.payload[..]).context("Failed to decompress payload")?
+        }
+        #[cfg(not(feature = "zstd"))]
+        {
+            anyhow::bail!("Received compressed message but zstd feature is disabled");
+        }
     } else {
         envelope.payload
     };
@@ -70,27 +77,31 @@ pub fn from_bytes(bytes: &[u8]) -> Result<(Vec<u8>, MessageType)> {
 /// 将消息序列化为字节
 ///
 /// 将消息载荷封装到 Envelope 中并序列化。
-/// 当前禁用了压缩（直接复制载荷）。
+/// 当 compress=true 且 zstd feature 启用时使用 zstd 压缩。
 ///
 /// Args:
 ///   - obj_buf: 消息载荷的字节数据
 ///   - message_type: 消息类型
+///   - compress: 是否启用压缩
 ///
 /// Returns:
 ///   - 序列化的字节数据
-///
-/// Note:
-///   - 压缩功能已禁用（见下方注释）
-///   - compressed 字段始终为 false
-pub fn to_bytes(obj_buf: &Vec<u8>, message_type: MessageType) -> Result<Vec<u8>> {
-    // 当前禁用压缩，直接复制载荷
-    let compressed_payload: Vec<u8> = obj_buf.clone();
-    /*
-    zstd::encode_all(&mut compressed_payload, &obj_buf[..], 3)?;*/
+pub fn to_bytes(obj_buf: &Vec<u8>, message_type: MessageType, compress: bool) -> Result<Vec<u8>> {
+    #[cfg(feature = "zstd")]
+    let (compressed_payload, is_compressed) = if compress {
+        let compressed = zstd::encode_all(&obj_buf[..], 3).context("Failed to compress payload")?;
+        (compressed, true)
+    } else {
+        (obj_buf.clone(), false)
+    };
+
+    #[cfg(not(feature = "zstd"))]
+    let (compressed_payload, is_compressed) = (obj_buf.clone(), false);
+
     let envelope = common::Envelope {
         r#type: message_type as i32,
         payload: compressed_payload,
-        compressed: false,
+        compressed: is_compressed,
     };
     Ok(envelope.encode_to_vec())
 }

@@ -97,11 +97,20 @@ class Worker:
                 "arch": self.registration.arch,
                 "max_concurrency": self.registration.max_concurrency,
                 "memory_size": self.registration.memory_size,
+                "type": self.registration.type,
                 "provided_capabilities": list(
                     self.registration.provided_capabilities.items
                 ),
             },
         }
+
+    @property
+    def is_mcu(self) -> bool:
+        """判断是否为 MCU Worker
+
+        MCU Worker 资源受限，禁用 zstd 压缩以降低 CPU 开销。
+        """
+        return self.registration.type == NodeRegistration.WorkerType.MCU
 
     def add_task(self, task_id: int) -> None:
         """添加任务到当前任务列表
@@ -260,7 +269,7 @@ class WorkerManager:
             worker_id=worker.node_id,
             payload={"name": registration.name},
         )
-        await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id)))
+        await ws.send_bytes(proto2bytes(NodeRegistrationReply(node_id=worker.node_id), compress=not worker.is_mcu))
         await self.notify_scheduler("worker.registered")
 
     def get_worker(self, node_id: str) -> Optional[Worker]:
@@ -407,7 +416,8 @@ class WorkerManager:
                 ControlCommand(
                     type=command_type,
                     data=json.dumps(payload),
-                )
+                ),
+                compress=not worker.is_mcu,
             )
         )
         return True

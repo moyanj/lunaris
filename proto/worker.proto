@@ -48,12 +48,17 @@ message NodeStatus {
 
 // ========== 节点注册消息 ==========
 message NodeRegistration {
+  enum WorkerType {
+    STANDARD = 0;  // 标准 Worker（Python / Rust），支持 zstd 压缩
+    MCU = 1;       // 资源受限的 MCU Worker，禁用压缩以降低开销
+  }
   string name = 1;            // 主机名
   string arch = 2;            // 处理器架构
   uint32 max_concurrency = 3; // 最大并发任务数
   uint64 memory_size = 4;     // 总内存容量（MB）
   string token = 5;
   common.HostCapabilities provided_capabilities = 6;
+  WorkerType type = 7;        // Worker 类型，Master 据此决定压缩策略
 }
 
 message NodeRegistrationReply {

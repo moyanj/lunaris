@@ -57,6 +57,7 @@ pub struct Worker {
     name: String,
     token: String,
     max_concurrency: usize,
+    use_compress: bool,
     node_id: String,
     running: Arc<Mutex<bool>>,
     num_running: Arc<Mutex<usize>>,
@@ -73,6 +74,7 @@ impl Worker {
         token: &str,
         name: String,
         max_concurrency: usize,
+        use_compress: bool,
         default_execution_limits: common::ExecutionLimits,
         max_execution_limits: common::ExecutionLimits,
     ) -> Result<Self> {
@@ -81,6 +83,7 @@ impl Worker {
             name: name,
             token: token.to_string(),
             max_concurrency,
+            use_compress,
             node_id: String::new(),
             running: Arc::new(Mutex::new(false)),
             num_running: Arc::new(Mutex::new(0)),
@@ -122,6 +125,12 @@ impl Worker {
             Message,
         >,
     ) -> Result<()> {
+        let worker_type = if self.use_compress {
+            worker::node_registration::WorkerType::Standard
+        } else {
+            worker::node_registration::WorkerType::Mcu
+        };
+
         let registration = worker::NodeRegistration {
             name: self.name.clone(),
             arch: std::env::consts::ARCH.to_string(),
@@ -135,9 +144,10 @@ impl Worker {
                     .map(|s| s.to_string())
                     .collect(),
             }),
+            r#type: worker_type as i32,
         };
 
-        let bytes = proto::to_bytes(&registration.encode_to_vec(), MessageType::NodeRegistration)?;
+        let bytes = proto::to_bytes(&registration.encode_to_vec(), MessageType::NodeRegistration, self.use_compress)?;
         write.send(Message::Binary(bytes.into())).await?;
 
         Ok(())
@@ -161,6 +171,7 @@ impl Worker {
         let num_running = Arc::clone(&self.num_running);
         let running = Arc::clone(&self.running);
         let max_concurrency = self.max_concurrency;
+        let use_compress = self.use_compress;
 
         tokio::spawn(async move {
             while *running.lock().await {
@@ -179,7 +190,7 @@ impl Worker {
                     current_task: current_tasks as u32,
                 };
 
-                if let Ok(bytes) = proto::to_bytes(&status.encode_to_vec(), MessageType::NodeStatus)
+                if let Ok(bytes) = proto::to_bytes(&status.encode_to_vec(), MessageType::NodeStatus, use_compress)
                 {
                     if let Ok(mut write_guard) = write.try_lock() {
                         let _ = write_guard.send(Message::Binary(bytes.into())).await;
@@ -214,7 +225,7 @@ impl Worker {
             attempt,
         };
 
-        let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult)?;
+        let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult, self.use_compress)?;
         write.send(Message::Binary(bytes.into())).await?;
 
         Ok(())
@@ -246,7 +257,7 @@ impl Worker {
                 succeeded: false,
             };
             let mut write_guard = write.lock().await;
-            Self::report_result_static(&mut write_guard, result, task.task_id, task.attempt)
+            Self::report_result_static(&mut write_guard, result, task.task_id, task.attempt, self.use_compress)
                 .await?;
             return Ok(());
         }
@@ -257,6 +268,7 @@ impl Worker {
             task.task_id,
             self.node_id.clone(),
             task.attempt,
+            self.use_compress,
         )
         .await?;
         drop(write_guard);
@@ -344,6 +356,7 @@ impl Worker {
         let running_clone = Arc::clone(&self.running);
         let num_running_clone = Arc::clone(&self.num_running);
         let cancelled_tasks_clone = Arc::clone(&self.cancelled_tasks);
+        let use_compress = self.use_compress;
         tokio::spawn(async move {
             while *running_clone.lock().await {
                 if let Some((result, task_id, attempt)) = result_rx.recv().await {
@@ -361,7 +374,7 @@ impl Worker {
                     };
                     let mut write_guard = write_arc_clone.lock().await;
                     if let Err(e) =
-                        Self::report_result_static(&mut write_guard, result, task_id, attempt).await
+                        Self::report_result_static(&mut write_guard, result, task_id, attempt, use_compress).await
                     {
                         error!("Failed to report result: {}", e);
                     }
@@ -430,6 +443,7 @@ impl Worker {
         result: WasmResult,
         task_id: u64,
         attempt: u32,
+        use_compress: bool,
     ) -> Result<()> {
         let task_result = common::TaskResult {
             task_id,
@@ -441,7 +455,7 @@ impl Worker {
             attempt,
         };
 
-        let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult)?;
+        let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult, use_compress)?;
         write.send(Message::Binary(bytes.into())).await?;
         Ok(())
     }
@@ -456,13 +470,14 @@ impl Worker {
         task_id: u64,
         node_id: String,
         attempt: u32,
+        use_compress: bool,
     ) -> Result<()> {
         let accepted = worker::TaskAccepted {
             task_id,
             node_id,
             attempt,
         };
-        let bytes = proto::to_bytes(&accepted.encode_to_vec(), MessageType::TaskAccepted)?;
+        let bytes = proto::to_bytes(&accepted.encode_to_vec(), MessageType::TaskAccepted, use_compress)?;
         write.send(Message::Binary(bytes.into())).await?;
         Ok(())
     }

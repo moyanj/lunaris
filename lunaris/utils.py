@@ -80,8 +80,18 @@ def bytes2proto(
     return message_class.FromString(payload)
 
 
-def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
-    """将proto对象转换为字节数据"""
+def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None, compress: bool = True) -> bytes:
+    """将proto对象转换为字节数据
+
+    Args:
+        obj: protobuf 消息对象
+        type: 消息类型，自动推导时可为 None
+        compress: 是否启用 zstd 压缩，默认 True。
+                  MCU Worker 等资源受限场景可传 False 禁用压缩。
+
+    Returns:
+        序列化后的字节数据
+    """
     # 检查是否是protobuf对象
     if type is None:
         message_type = CLASS_TO_MESSAGE_TYPE.get(obj.__class__)
@@ -92,8 +102,12 @@ def proto2bytes(obj: Any, type: Optional[Envelope.MessageType] = None) -> bytes:
 
     envelope = Envelope()
     envelope.type = message_type
-    envelope.payload = zstandard.compress(obj.SerializeToString())
-    envelope.compressed = True
+    if compress:
+        envelope.payload = zstandard.compress(obj.SerializeToString())
+        envelope.compressed = True
+    else:
+        envelope.payload = obj.SerializeToString()
+        envelope.compressed = False
     return envelope.SerializeToString()
 
 

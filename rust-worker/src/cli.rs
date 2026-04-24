@@ -51,6 +51,10 @@ pub struct Cli {
     #[arg(short, long, default_value_t = env::var("WORKER_TOKEN").unwrap_or("1145".to_string()))]
     pub token: String,
 
+    /// 禁用 zstd 压缩（适用于资源受限的 MCU Worker）
+    #[arg(long, default_value_t = false)]
+    pub no_compress: bool,
+
     /// 默认燃料限制（0 表示无限制）
     #[arg(long, default_value_t = 0)]
     pub default_max_fuel: u64,

@@ -44,6 +44,11 @@ async def main():
         type=str,
         default=os.environ.get("WORKER_TOKEN", ""),
     )
+    worker_parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Disable zstd compression (for resource-constrained MCU workers)",
+    )
     worker_parser.add_argument("--default-max-fuel", type=int, default=0)
     worker_parser.add_argument("--default-max-memory-bytes", type=int, default=0)
     worker_parser.add_argument("--default-max-module-bytes", type=int, default=0)
@@ -99,6 +104,7 @@ async def run_worker(args):
         token=args.token,
         name=args.name,
         max_concurrency=args.concurrency,
+        use_compress=not args.no_compress,
         default_execution_limits=_default_limits_from_args(args),
         max_execution_limits=_max_limits_from_args(args),
     )

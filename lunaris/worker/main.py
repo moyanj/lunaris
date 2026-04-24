@@ -40,6 +40,7 @@ class Worker:
         token: str,
         name: Optional[str] = None,
         max_concurrency: Optional[int] = None,
+        use_compress: bool = True,
         default_execution_limits: Optional[ExecutionLimits] = None,
         max_execution_limits: Optional[ExecutionLimits] = None,
     ) -> None:
@@ -48,6 +49,7 @@ class Worker:
         self.master_uri = master_uri
         self.name = name or f"worker-{secrets.token_hex(8)}"
         self.max_concurrency = max_concurrency or psutil.cpu_count() or 1
+        self.use_compress = use_compress
         self.node_id: str = ""
         self.running = False
         self.token = token
@@ -97,7 +99,8 @@ class Worker:
                         node_id=self.node_id,
                         status=state,
                         current_task=self.num_running,
-                    )
+                    ),
+                    compress=self.use_compress,
                 )
             )
 
@@ -119,7 +122,8 @@ class Worker:
                     proto2bytes(
                         UnregisterNode(
                             node_id=self.node_id,
-                        )
+                        ),
+                        compress=self.use_compress,
                     )
                 )
             await ws.close()
@@ -139,8 +143,9 @@ class Worker:
             memory_size=psutil.virtual_memory().total // 1048576,
             token=self.token,
             provided_capabilities={"items": list(DEFAULT_PROVIDED_CAPABILITIES)},
+            type=NodeRegistration.WorkerType.STANDARD if self.use_compress else NodeRegistration.WorkerType.MCU,
         )
-        await self.ws.send(proto2bytes(registration))
+        await self.ws.send(proto2bytes(registration, compress=self.use_compress))
 
         response = await self.ws.recv(decode=False)
         response = bytes2proto(response)
@@ -179,7 +184,7 @@ class Worker:
             attempt=attempt,
         )
         try:
-            await self.ws.send(proto2bytes(proto))
+            await self.ws.send(proto2bytes(proto, compress=self.use_compress))
         finally:
             self.num_running = max(self.num_running - 1, 0)
 
@@ -209,7 +214,8 @@ class Worker:
                     task_id=task.task_id,
                     node_id=self.node_id,
                     attempt=task.attempt,
-                )
+                ),
+                compress=self.use_compress,
             )
         )
         self.num_running += 1
