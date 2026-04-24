@@ -1,3 +1,36 @@
+/**
+ * Lunaris C Guest SDK
+ *
+ * 用于编译到 wasm32-wasip1 目标的 WASM 模块。
+ * 提供任务上下文读取和宿主能力访问功能。
+ *
+ * 主要组件：
+ *   - lunaris_context_t: 任务上下文结构体
+ *   - lunaris_status_t: 状态枚举
+ *   - 上下文读取函数
+ *   - SIMD 能力导入函数
+ *
+ * 使用示例：
+ *   ```c
+ *   #include "lunaris.h"
+ *   #include <stdio.h>
+ *
+ *   int wmain(int a, int b) {
+ *       lunaris_context_t ctx;
+ *       if (lunaris_context_load(&ctx) == LUNARIS_STATUS_OK) {
+ *           printf("task=%llu worker=%s\n",
+ *               (unsigned long long)ctx.task_id,
+ *               ctx.worker_version);
+ *           lunaris_context_free(&ctx);
+ *       }
+ *
+ *       if (lunaris_has_capability("simd")) {
+ *           return lunaris_simd_add_checked(a, b, NULL);
+ *       }
+ *       return a + b;
+ *   }
+ *   ```
+ */
 #ifndef LUNARIS_GUEST_SDK_H
 #define LUNARIS_GUEST_SDK_H
 
@@ -7,10 +40,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* 环境变量名称 */
 #define LUNARIS_TASK_ID_ENV "LUNARIS_TASK_ID"
 #define LUNARIS_WORKER_VERSION_ENV "LUNARIS_WORKER_VERSION"
 #define LUNARIS_HOST_CAPABILITIES_ENV "LUNARIS_HOST_CAPABILITIES"
 
+/**
+ * 状态枚举
+ *
+ * 表示操作的执行结果。
+ *
+ * 值：
+ *   - LUNARIS_STATUS_OK: 成功
+ *   - LUNARIS_STATUS_MISSING_ENV: 缺少环境变量
+ *   - LUNARIS_STATUS_INVALID_ARGUMENT: 无效参数
+ *   - LUNARIS_STATUS_BUFFER_TOO_SMALL: 缓冲区太小
+ *   - LUNARIS_STATUS_PARSE_ERROR: 解析错误
+ *   - LUNARIS_STATUS_MISSING_CAPABILITY: 缺少宿主能力
+ */
 typedef enum lunaris_status {
     LUNARIS_STATUS_OK = 0,
     LUNARIS_STATUS_MISSING_ENV = 1,
@@ -20,11 +67,26 @@ typedef enum lunaris_status {
     LUNARIS_STATUS_MISSING_CAPABILITY = 5,
 } lunaris_status_t;
 
+/**
+ * 字符串视图结构体
+ *
+ * 包含字符串数据指针和长度。
+ */
 typedef struct lunaris_string_view {
     const char *data;
     size_t len;
 } lunaris_string_view_t;
 
+/**
+ * 任务上下文结构体
+ *
+ * 包含当前任务的元数据。
+ *
+ * 字段：
+ *   - task_id: 任务 ID
+ *   - worker_version: Worker 版本号（需要释放）
+ *   - host_capabilities_json: 宿主能力 JSON 字符串（需要释放）
+ */
 typedef struct lunaris_context {
     uint64_t task_id;
     char *worker_version;

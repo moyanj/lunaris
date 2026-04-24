@@ -1,3 +1,23 @@
+/**
+ * Worker 核心模块
+ *
+ * 实现 Rust 工作节点的核心逻辑，包括：
+ *   - WebSocket 连接管理
+ *   - 节点注册和心跳
+ *   - 任务接收和分发
+ *   - 任务取消和 drain 模式
+ *
+ * 主要组件：
+ *   - Worker: 工作节点结构体，管理整个生命周期
+ *   - 心跳机制：每 10 秒发送心跳到 Master
+ *   - 任务处理：接收任务并分发到 WASM 执行引擎
+ *
+ * 状态管理：
+ *   - running: 运行状态标志
+ *   - num_running: 当前运行任务数
+ *   - drain_enabled: drain 模式标志
+ *   - cancelled_tasks: 已取消任务集合
+ */
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
 use prost::Message as _;
@@ -15,6 +35,23 @@ use crate::engine::{Runner, WasmResult};
 use crate::proto::common::envelope::MessageType;
 use crate::proto::{self, common, worker};
 
+/// Worker 结构体
+///
+/// 表示一个工作节点，管理与 Master 的连接、任务执行和状态。
+///
+/// 字段说明：
+///   - master_uri: Master 节点的 WebSocket 地址
+///   - name: Worker 名称（用于日志和监控）
+///   - token: 认证令牌
+///   - max_concurrency: 最大并发数
+///   - node_id: 节点 ID（注册后由 Master 分配）
+///   - running: 运行状态（线程安全）
+///   - num_running: 当前运行任务数（线程安全）
+///   - drain_enabled: drain 模式标志（线程安全）
+///   - cancelled_tasks: 已取消任务集合（线程安全）
+///   - runner: WASM 执行引擎
+///   - default_execution_limits: 默认资源限制
+///   - max_execution_limits: 最大资源限制
 pub struct Worker {
     master_uri: String,
     name: String,

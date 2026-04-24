@@ -1,14 +1,25 @@
-//! SIMD Capability
-//!
-//! Mock capability for testing the capability system.
-//! Provides `lunaris:simd/ping` function.
-
+/**
+ * SIMD 能力模块
+ *
+ * 模拟能力，用于测试能力系统。
+ * 提供 `lunaris:simd/ping` 和 `lunaris:simd/add` 函数。
+ *
+ * 主要功能：
+ *   - ping: 测试函数，返回 1
+ *   - add: 加法函数，使用 wrapping_add 避免溢出
+ *
+ * 使用场景：
+ *   - 测试能力系统是否正常工作
+ *   - 验证能力检查机制
+ */
 use anyhow::Result;
 use wasmtime::Linker;
 
 use super::{register_capability_functions, Capability, CapabilityHostState};
 
-/// SIMD capability implementation
+/// SIMD 能力实现
+///
+/// 提供 SIMD 模拟功能，用于测试。
 pub struct SimdCapability;
 
 impl Capability for SimdCapability {

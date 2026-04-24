@@ -1,3 +1,24 @@
+"""
+Master 数据模型模块
+
+定义 Master 节点的数据模型，包括任务状态、尝试状态、Worker 状态等枚举，
+以及任务、Worker 记录等数据类。
+
+主要组件：
+    - TaskStatus: 任务生命周期状态枚举
+    - AttemptStatus: 任务尝试状态枚举
+    - WorkerStatus: Worker 节点状态枚举
+    - TaskResultPayload: 任务执行结果载荷
+    - TaskAttempt: 任务尝试记录
+    - WorkerRecord: Worker 节点记录
+    - TaskEvent: 任务事件记录
+    - Task: 任务完整信息
+
+状态流转：
+    TaskStatus: CREATED → QUEUED → LEASED → RUNNING → SUCCEEDED/FAILED
+    AttemptStatus: DISPATCHED → ACCEPTED → RUNNING → FINISHED/LOST/CANCELLED
+    WorkerStatus: ACTIVE → DRAINING → OFFLINE/LOST
+"""
 import base64
 from datetime import datetime, timedelta
 from enum import Enum
@@ -10,20 +31,60 @@ from lunaris.proto.common_pb2 import TaskResult
 
 
 def _now() -> datetime:
+    """获取当前时间
+
+    Returns:
+        当前 datetime 对象
+    """
     return datetime.now()
 
 
 def _encode_bytes(value: bytes) -> str:
+    """将字节编码为 Base64 字符串
+
+    Args:
+        value: 要编码的字节数据
+
+    Returns:
+        Base64 编码的字符串
+    """
     return base64.b64encode(value).decode("ascii")
 
 
 def _decode_bytes(value: str) -> bytes:
+    """将 Base64 字符串解码为字节
+
+    Args:
+        value: Base64 编码的字符串
+
+    Returns:
+        解码后的字节数据，空字符串返回 b""
+    """
     if not value:
         return b""
     return base64.b64decode(value.encode("ascii"))
 
 
 class TaskStatus(str, Enum):
+    """任务状态枚举
+
+    定义任务的完整生命周期状态。
+
+    状态流转：
+        CREATED → QUEUED → LEASED → RUNNING → SUCCEEDED/FAILED
+        特殊状态：RETRY_WAIT（重试等待）、CANCEL_REQUESTED（取消请求）、CANCELLED（已取消）
+
+    Attributes:
+        CREATED: 已创建，初始状态
+        QUEUED: 排队中，等待分配 Worker
+        LEASED: 已分配给 Worker，等待执行
+        RUNNING: 运行中，Worker 正在执行
+        RETRY_WAIT: 重试等待，执行失败后等待重试
+        CANCEL_REQUESTED: 取消请求，等待 Worker 确认
+        CANCELLED: 已取消
+        SUCCEEDED: 执行成功
+        FAILED: 执行失败（达到最大重试次数）
+    """
     CREATED = "created"
     QUEUED = "queued"
     LEASED = "leased"
@@ -36,6 +97,21 @@ class TaskStatus(str, Enum):
 
 
 class AttemptStatus(str, Enum):
+    """任务尝试状态枚举
+
+    定义单次任务尝试的状态。
+
+    状态流转：
+        DISPATCHED → ACCEPTED → RUNNING → FINISHED/LOST/CANCELLED
+
+    Attributes:
+        DISPATCHED: 已派发，发送给 Worker
+        ACCEPTED: 已接受，Worker 确认接收
+        RUNNING: 运行中，Worker 正在执行
+        FINISHED: 已完成，执行成功或失败
+        LOST: 丢失，Worker 断开连接
+        CANCELLED: 已取消，任务被取消
+    """
     DISPATCHED = "dispatched"
     ACCEPTED = "accepted"
     RUNNING = "running"
@@ -45,6 +121,16 @@ class AttemptStatus(str, Enum):
 
 
 class WorkerStatus(str, Enum):
+    """Worker 节点状态枚举
+
+    定义 Worker 节点的运行状态。
+
+    Attributes:
+        ACTIVE: 活跃，正常接收任务
+        DRAINING: 排空，不接收新任务，等待现有任务完成
+        OFFLINE: 离线，主动断开连接
+        LOST: 丢失，心跳超时断开
+    """
     ACTIVE = "active"
     DRAINING = "draining"
     OFFLINE = "offline"
@@ -52,6 +138,22 @@ class WorkerStatus(str, Enum):
 
 
 class TaskResultPayload(BaseModel):
+    """任务执行结果载荷
+
+    包含任务执行的输出、耗时和状态。
+
+    Attributes:
+        result: 函数返回值（JSON 字符串）
+        stdout: 标准输出内容（字节）
+        stderr: 标准错误输出内容（字节）
+        time: 执行耗时（毫秒）
+        succeeded: 是否执行成功
+        attempt: 任务尝试次数
+
+    Examples:
+        >>> payload = TaskResultPayload(result='"hello"', succeeded=True, time=1.5)
+        >>> proto = payload.to_proto(task_id=123)
+    """
     result: str = ""
     stdout: bytes = b""
     stderr: bytes = b""
@@ -61,6 +163,14 @@ class TaskResultPayload(BaseModel):
 
     @classmethod
     def from_proto(cls, proto: TaskResult) -> "TaskResultPayload":
+        """从 Protobuf 消息创建
+
+        Args:
+            proto: TaskResult Protobuf 消息
+
+        Returns:
+            TaskResultPayload 实例
+        """
         return cls(
             result=proto.result,
             stdout=proto.stdout,
@@ -71,6 +181,14 @@ class TaskResultPayload(BaseModel):
         )
 
     def to_proto(self, task_id: int) -> TaskResult:
+        """转换为 Protobuf 消息
+
+        Args:
+            task_id: 任务 ID
+
+        Returns:
+            TaskResult Protobuf 消息
+        """
         return TaskResult(
             task_id=task_id,
             result=self.result,
@@ -82,6 +200,11 @@ class TaskResultPayload(BaseModel):
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """转换为字典格式
+
+        Returns:
+            包含所有字段的字典，输出同时提供 UTF-8 和 Base64 编码
+        """
         return {
             "result": self.result,
             "stdout": self.stdout.decode("utf-8", errors="replace"),
@@ -94,6 +217,11 @@ class TaskResultPayload(BaseModel):
         }
 
     def to_snapshot(self) -> dict[str, Any]:
+        """转换为快照格式（用于持久化）
+
+        Returns:
+            包含所有字段的字典，输出使用 Base64 编码
+        """
         return {
             "result": self.result,
             "stdout": _encode_bytes(self.stdout),

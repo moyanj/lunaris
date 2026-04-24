@@ -309,6 +309,21 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_result(), self._loop).result()  # type: ignore
 
     def get_task_status(self, task_id: int) -> Optional[Dict[str, Any]]:
+        """获取任务状态（REST 接口）
+
+        通过 REST API 查询任务的轻量级状态信息。
+
+        Args:
+            task_id: 任务 ID
+
+        Returns:
+            任务状态字典，如果任务不存在返回 None
+
+        Examples:
+            >>> status = client.get_task_status(123)
+            >>> if status:
+            ...     print(status["status"])
+        """
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -318,6 +333,15 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_status(), self._loop).result()  # type: ignore
 
     def get_tasks(self) -> Dict[str, Any]:
+        """获取所有任务列表（REST 接口）
+
+        Returns:
+            包含任务列表的字典
+
+        Examples:
+            >>> tasks = client.get_tasks()
+            >>> print(f"Total tasks: {tasks['count']}")
+        """
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -327,6 +351,17 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_tasks(), self._loop).result()  # type: ignore
 
     def get_tasks_by_status(self, status: str) -> Dict[str, Any]:
+        """按状态获取任务列表（REST 接口）
+
+        Args:
+            status: 任务状态
+
+        Returns:
+            包含任务列表的字典
+
+        Examples:
+            >>> running_tasks = client.get_tasks_by_status("RUNNING")
+        """
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -336,6 +371,17 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_tasks(), self._loop).result()  # type: ignore
 
     def get_tasks_by_worker(self, worker_id: str) -> Dict[str, Any]:
+        """按 Worker 获取任务列表（REST 接口）
+
+        Args:
+            worker_id: Worker 节点 ID
+
+        Returns:
+            包含任务列表的字典
+
+        Examples:
+            >>> worker_tasks = client.get_tasks_by_worker("worker-abc123")
+        """
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -345,6 +391,15 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_tasks(), self._loop).result()  # type: ignore
 
     def get_workers(self) -> Dict[str, Any]:
+        """获取所有 Worker 列表（REST 接口）
+
+        Returns:
+            包含 Worker 列表的字典
+
+        Examples:
+            >>> workers = client.get_workers()
+            >>> print(f"Connected workers: {workers['count']}")
+        """
         if not self._connected:
             raise RuntimeError("Client not connected")
 
@@ -354,6 +409,15 @@ class SyncLunarisClient:
         return asyncio.run_coroutine_threadsafe(_get_workers(), self._loop).result()  # type: ignore
 
     def get_stats(self) -> Dict[str, Any]:
+        """获取系统统计信息（REST 接口）
+
+        Returns:
+            统计信息字典
+
+        Examples:
+            >>> stats = client.get_stats()
+            >>> print(f"Total tasks: {stats.get('total_tasks', 0)}")
+        """
         if not self._connected:
             raise RuntimeError("Client not connected")
 

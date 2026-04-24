@@ -1,3 +1,23 @@
+"""
+Master 任务调度管理器
+
+提供 Worker 管理和任务调度的核心功能。
+
+主要组件：
+    - Worker: Worker 节点的数据模型
+    - WorkerManager: Worker 节点管理器
+    - TaskManager: 任务调度管理器
+
+调度机制：
+    - 优先级队列：任务按优先级排序，高优先级先执行
+    - 负载均衡：选择可用槽位最多的 Worker
+    - 能力匹配：Worker 必须支持任务所需的宿主能力
+    - 心跳监控：20 秒无响应移除 Worker
+
+状态持久化：
+    - 基于 StateStore 的事件驱动持久化
+    - 任务状态变更记录为事件，支持增量同步
+"""
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +51,24 @@ from lunaris.utils import proto2bytes
 
 @dataclass
 class Worker:
+    """Worker 节点数据模型
+
+    表示一个连接的 Worker 节点，包含连接信息、状态和任务列表。
+
+    Attributes:
+        websocket: WebSocket 连接
+        registration: 节点注册信息
+        node_id: 节点唯一 ID（自动生成）
+        last_heartbeat: 最后心跳时间
+        status: 最新状态报告
+        current_tasks: 当前正在执行的任务 ID 列表
+        drain: 是否处于排空模式
+
+    Examples:
+        >>> worker = Worker(websocket, registration)
+        >>> worker.add_task(123)
+        >>> print(worker.available_slots)  # 剩余可用槽位
+    """
     websocket: WebSocket
     registration: NodeRegistration
     node_id: str = field(default_factory=lambda: secrets.token_hex(16))
@@ -40,6 +78,11 @@ class Worker:
     drain: bool = False
 
     def to_dict(self) -> dict:
+        """转换为字典格式
+
+        Returns:
+            包含所有字段的字典，用于 JSON 序列化
+        """
         return {
             "node_id": self.node_id,
             "last_heartbeat": self.last_heartbeat.isoformat(),
@@ -61,40 +104,102 @@ class Worker:
         }
 
     def add_task(self, task_id: int) -> None:
+        """添加任务到当前任务列表
+
+        Args:
+            task_id: 任务 ID
+        """
         if task_id not in self.current_tasks:
             self.current_tasks.append(task_id)
 
     def remove_task(self, task_id: int) -> None:
+        """从当前任务列表移除任务
+
+        Args:
+            task_id: 任务 ID
+        """
         if task_id in self.current_tasks:
             self.current_tasks.remove(task_id)
 
     @property
     def current_load(self) -> int:
+        """当前负载（任务数量）
+
+        Returns:
+            当前正在执行的任务数
+        """
         return len(self.current_tasks)
 
     @property
     def available_slots(self) -> int:
+        """可用槽位数
+
+        Returns:
+            max_concurrency - current_load，最小为 0
+        """
         return max(0, self.registration.max_concurrency - self.current_load)
 
     def supports(self, required_capabilities: list[str]) -> bool:
+        """检查是否支持所需的能力
+
+        Args:
+            required_capabilities: 所需的能力列表
+
+        Returns:
+            如果支持所有所需能力返回 True
+        """
         return set(required_capabilities).issubset(
             set(self.registration.provided_capabilities.items)
         )
 
 
 class WorkerManager:
+    """Worker 节点管理器
+
+    管理所有连接的 Worker 节点，提供注册、查询、状态同步等功能。
+
+    Attributes:
+        store: 状态存储
+        notify_scheduler: 调度通知回调
+        metrics: 指标收集器
+        workers: 已连接的 Worker 列表
+
+    Examples:
+        >>> manager = WorkerManager(store, notify_scheduler, metrics)
+        >>> await manager.register(ws, registration)
+        >>> worker = manager.get_available_worker()
+    """
+
     def __init__(
         self,
         store: StateStore,
         notify_scheduler: Callable[[str], Awaitable[None]],
         metrics: MasterMetrics,
     ):
+        """初始化 Worker 管理器
+
+        Args:
+            store: 状态存储后端
+            notify_scheduler: 调度通知回调，参数为事件类型
+            metrics: 指标收集器
+        """
         self.store = store
         self.notify_scheduler = notify_scheduler
         self.metrics = metrics
         self.workers: List[Worker] = []
 
     async def sync_worker_state(self, worker: Worker) -> None:
+        """同步 Worker 状态到存储
+
+        将 Worker 的内存状态同步到持久化存储，并触发调度。
+
+        Args:
+            worker: Worker 实例
+
+        Note:
+            - Worker 容量变化需要立刻落盘并唤醒调度
+            - 不再依赖 heartbeat 周期刷新
+        """
         record = self.store.workers.get(worker.node_id)
         if not record:
             return
@@ -111,6 +216,20 @@ class WorkerManager:
         await self.notify_scheduler("worker.capacity_changed")
 
     async def register(self, ws: WebSocket, registration: NodeRegistration) -> None:
+        """注册新的 Worker 节点
+
+        处理 Worker 的注册请求，创建 Worker 记录并发送确认。
+
+        Args:
+            ws: WebSocket 连接
+            registration: 节点注册信息
+
+        Note:
+            - 规范化宿主能力列表
+            - 创建持久化记录
+            - 发送注册确认（包含 node_id）
+            - 触发调度通知
+        """
         provided_capabilities = normalize_host_capabilities(
             registration.provided_capabilities.items
         )
@@ -145,12 +264,28 @@ class WorkerManager:
         await self.notify_scheduler("worker.registered")
 
     def get_worker(self, node_id: str) -> Optional[Worker]:
+        """根据节点 ID 获取 Worker
+
+        Args:
+            node_id: 节点 ID
+
+        Returns:
+            Worker 实例，如果不存在返回 None
+        """
         for worker in self.workers:
             if worker.node_id == node_id:
                 return worker
         return None
 
     def get_worker_by_ws(self, ws: WebSocket) -> Optional[Worker]:
+        """根据 WebSocket 连接获取 Worker
+
+        Args:
+            ws: WebSocket 连接
+
+        Returns:
+            Worker 实例，如果不存在返回 None
+        """
         for worker in self.workers:
             if worker.websocket == ws:
                 return worker
@@ -159,6 +294,20 @@ class WorkerManager:
     def get_available_worker_nowait(
         self, required_capabilities: Optional[list[str]] = None
     ) -> Optional[Worker]:
+        """获取可用的 Worker（非等待）
+
+        选择可用槽位最多的 Worker，用于任务分配。
+
+        Args:
+            required_capabilities: 所需的能力列表
+
+        Returns:
+            可用的 Worker，如果没有返回 None
+
+        Note:
+            - 排除已断开、排空、满载的 Worker
+            - 选择可用槽位最多的 Worker（负载均衡）
+        """
         required_capabilities = required_capabilities or []
         available_workers = [
             worker
@@ -173,6 +322,22 @@ class WorkerManager:
         return max(available_workers, key=lambda item: item.available_slots)
 
     async def set_drain(self, worker_id: str, enabled: bool) -> bool:
+        """设置 Worker 排空模式
+
+        控制 Worker 是否进入排空模式（不接收新任务）。
+
+        Args:
+            worker_id: 节点 ID
+            enabled: 是否启用排空模式
+
+        Returns:
+            操作是否成功
+
+        Note:
+            - 如果 Worker 在线，立即同步状态
+            - 如果 Worker 离线，更新持久化记录
+            - 发送控制命令通知 Worker
+        """
         worker = self.get_worker(worker_id)
         if not worker:
             record = self.store.workers.get(worker_id)

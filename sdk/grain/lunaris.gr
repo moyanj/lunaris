@@ -1,3 +1,29 @@
+/**
+ * Lunaris Grain Guest SDK
+ *
+ * 用于编译到 WASM 的 Grain 模块。
+ * 提供任务上下文读取和宿主能力访问功能。
+ *
+ * 主要组件：
+ *   - TaskContext: 任务上下文类型
+ *   - taskId(): 读取任务 ID
+ *   - workerVersion(): 读取 Worker 版本
+ *   - hasCapability(): 检查宿主能力
+ *   - currentContext(): 获取当前任务上下文
+ *
+ * 使用示例：
+ *   ```grain
+ *   from "./lunaris" include *
+ *   from "result" include Result
+ *
+ *   export let wmain = (a: Number, b: Number): Number =>
+ *     Result.mapWithDefault(
+ *       (ctx) => hasCapability("simd") ? a + b + (ctx.taskId % 2) : a + b,
+ *       a + b,
+ *       currentContext(),
+ *     )
+ *   ```
+ */
 from "wasi/process" include Process
 from "array" include Array
 from "string" include String
@@ -5,16 +31,25 @@ from "number" include Number
 from "result" include Result
 from "exception" include Exception
 
+// 环境变量名称
 let taskIdEnv = "LUNARIS_TASK_ID"
 let workerVersionEnv = "LUNARIS_WORKER_VERSION"
 let hostCapabilitiesEnv = "LUNARIS_HOST_CAPABILITIES"
 
+/**
+ * 任务上下文类型
+ *
+ * 包含当前任务的元数据。
+ */
 export type TaskContext = {
   taskId: Number,
   workerVersion: String,
   hostCapabilitiesJson: String,
 }
 
+/**
+ * 读取环境变量值
+ */
 let envValue = (name: String): Result<String, String> =>
   Result.mapWithDefaultFn(
     (vars) =>
@@ -26,6 +61,11 @@ let envValue = (name: String): Result<String, String> =>
     Process.env(),
   )
 
+/**
+ * 读取任务 ID
+ *
+ * 从 LUNARIS_TASK_ID 环境变量读取并解析。
+ */
 export let taskId = (): Result<Number, String> =>
   Result.mapWithDefaultFn(
     (raw) => Number.parseInt(raw, radix=10),
@@ -33,12 +73,21 @@ export let taskId = (): Result<Number, String> =>
     envValue(taskIdEnv),
   )
 
+/**
+ * 读取 Worker 版本
+ */
 export let workerVersion = (): Result<String, String> =>
   envValue(workerVersionEnv)
 
+/**
+ * 读取宿主能力 JSON
+ */
 export let hostCapabilitiesJson = (): Result<String, String> =>
   envValue(hostCapabilitiesEnv)
 
+/**
+ * 检查是否具有指定能力
+ */
 export let hasCapability = (name: String): Bool =>
   Result.mapWithDefault(
     (raw) => String.contains("\"" ++ name ++ "\"", raw),
@@ -46,6 +95,11 @@ export let hasCapability = (name: String): Bool =>
     hostCapabilitiesJson(),
   )
 
+/**
+ * 获取当前任务上下文
+ *
+ * 从环境变量读取任务上下文信息。
+ */
 export let currentContext = (): Result<TaskContext, String> =>
   Result.mapWithDefaultFn(
     (taskIdValue) =>

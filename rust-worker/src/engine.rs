@@ -1,3 +1,24 @@
+/**
+ * WASM 执行引擎模块
+ *
+ * 基于 wasmtime 的 WASM 执行引擎，提供高并发的 WASM 任务执行能力。
+ *
+ * 主要组件：
+ *   - WasmResult: WASM 执行结果结构体
+ *   - Runner: 任务执行器，管理并发和资源限制
+ *   - run_wasm: WASM 执行核心函数
+ *
+ * 特性：
+ *   - 异步执行：使用 tokio spawn_blocking 避免阻塞
+ *   - 并发控制：基于信号量的最大并发数限制
+ *   - 资源限制：燃料、内存、模块大小三重限制
+ *   - 宿主能力：支持可扩展的宿主功能
+ *
+ * 注入的环境变量：
+ *   - LUNARIS_TASK_ID: 当前任务 ID
+ *   - LUNARIS_WORKER_VERSION: Worker 版本号
+ *   - LUNARIS_HOST_CAPABILITIES: 启用的宿主能力（JSON 数组）
+ */
 use anyhow::{anyhow, Result};
 use serde_json::{from_str, json, Value};
 use std::{
@@ -11,11 +32,23 @@ use wasmtime_wasi::{p1::WasiP1Ctx, p2::pipe::MemoryOutputPipe, WasiCtx};
 use crate::capabilities::{CapabilityHostState, CapabilityRegistry};
 use crate::proto::{common::ExecutionLimits, worker};
 
+// 注入到 WASI 环境的变量名
 const INJECTED_TASK_ID_ENV: &str = "LUNARIS_TASK_ID";
 const INJECTED_WORKER_VERSION_ENV: &str = "LUNARIS_WORKER_VERSION";
 const INJECTED_HOST_CAPABILITIES_ENV: &str = "LUNARIS_HOST_CAPABILITIES";
+// Worker 版本号（从 Cargo.toml 读取）
 const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// WASM 执行结果
+///
+/// 包含执行的输出、耗时和状态。
+///
+/// 字段说明：
+///   - result: 函数返回值（JSON 字符串）
+///   - stdout: 标准输出内容
+///   - stderr: 标准错误输出内容
+///   - time: 执行耗时（毫秒）
+///   - succeeded: 是否执行成功
 pub struct WasmResult {
     pub result: String,
     pub stdout: Vec<u8>,
@@ -24,6 +57,16 @@ pub struct WasmResult {
     pub succeeded: bool,
 }
 
+/// 任务执行器
+///
+/// 管理 WASM 任务的并发执行，提供资源限制和能力系统支持。
+///
+/// 字段说明：
+///   - wasm_engine: wasmtime 编译引擎
+///   - result_tx: 结果发送通道
+///   - concurrency: 并发控制信号量
+///   - default_limits: 默认资源限制
+///   - max_limits: 最大资源限制（安全边界）
 pub struct Runner {
     wasm_engine: Engine,
     result_tx: mpsc::Sender<(WasmResult, u64, u32)>,

@@ -371,30 +371,154 @@ class LunarisClient:
             raise
 
     async def get_task_result(self, task_id: int) -> Optional[Dict[str, Any]]:
+        """获取任务结果（REST 接口）
+
+        通过 REST API 查询任务的完整信息，包括执行结果、输出、状态等。
+
+        Args:
+            task_id: 任务 ID
+
+        Returns:
+            任务信息字典，包含：
+                - task_id: 任务 ID
+                - status: 任务状态
+                - result: 执行结果（JSON 字符串）
+                - stdout: 标准输出
+                - stderr: 标准错误输出
+                - time: 执行耗时
+            如果任务不存在返回 None
+
+        Examples:
+            >>> result = await client.get_task_result(123)
+            >>> if result:
+            ...     print(result["result"])
+        """
         return await self._get_rest_data(f"/task/{task_id}")
 
     async def get_task_status(self, task_id: int) -> Optional[Dict[str, Any]]:
+        """获取任务状态（REST 接口）
+
+        通过 REST API 查询任务的轻量级状态信息，不包含完整的执行结果。
+
+        Args:
+            task_id: 任务 ID
+
+        Returns:
+            任务状态字典，包含：
+                - task_id: 任务 ID
+                - status: 任务状态（CREATED/QUEUED/LEASED/RUNNING/SUCCEEDED/FAILED）
+                - worker_id: 执行任务的 Worker ID（如果已分配）
+                - attempt: 当前尝试次数
+            如果任务不存在返回 None
+
+        Examples:
+            >>> status = await client.get_task_status(123)
+            >>> if status:
+            ...     print(status["status"])
+        """
         return await self._get_rest_data(f"/task/{task_id}/status")
 
     async def get_tasks(self) -> Dict[str, Any]:
+        """获取所有任务列表（REST 接口）
+
+        通过 REST API 查询所有任务的摘要信息。
+
+        Returns:
+            包含任务列表的字典：
+                - count: 任务总数
+                - tasks: 任务摘要列表
+
+        Examples:
+            >>> tasks = await client.get_tasks()
+            >>> print(f"Total tasks: {tasks['count']}")
+        """
         return await self._get_rest_data("/tasks") or {"count": 0, "tasks": []}
 
     async def get_tasks_by_status(self, status: str) -> Dict[str, Any]:
+        """按状态获取任务列表（REST 接口）
+
+        通过 REST API 查询指定状态的任务列表。
+
+        Args:
+            status: 任务状态，可选值：
+                - CREATED: 已创建
+                - QUEUED: 排队中
+                - LEASED: 已分配
+                - RUNNING: 运行中
+                - SUCCEEDED: 成功
+                - FAILED: 失败
+
+        Returns:
+            包含任务列表的字典：
+                - count: 任务数量
+                - tasks: 任务摘要列表
+
+        Examples:
+            >>> running_tasks = await client.get_tasks_by_status("RUNNING")
+            >>> print(f"Running tasks: {running_tasks['count']}")
+        """
         return await self._get_rest_data(f"/tasks/status/{status}") or {
             "count": 0,
             "tasks": [],
         }
 
     async def get_tasks_by_worker(self, worker_id: str) -> Dict[str, Any]:
+        """按 Worker 获取任务列表（REST 接口）
+
+        通过 REST API 查询分配给指定 Worker 的任务列表。
+
+        Args:
+            worker_id: Worker 节点 ID
+
+        Returns:
+            包含任务列表的字典：
+                - count: 任务数量
+                - tasks: 任务摘要列表
+
+        Examples:
+            >>> worker_tasks = await client.get_tasks_by_worker("worker-abc123")
+            >>> print(f"Tasks on worker: {worker_tasks['count']}")
+        """
         return await self._get_rest_data(f"/tasks/worker/{worker_id}") or {
             "count": 0,
             "tasks": [],
         }
 
     async def get_workers(self) -> Dict[str, Any]:
+        """获取所有 Worker 列表（REST 接口）
+
+        通过 REST API 查询所有已连接的 Worker 节点信息。
+
+        Returns:
+            包含 Worker 列表的字典：
+                - count: Worker 数量
+                - workers: Worker 信息列表，每个包含：
+                    - node_id: 节点 ID
+                    - status: 节点状态
+                    - last_heartbeat: 最后心跳时间
+
+        Examples:
+            >>> workers = await client.get_workers()
+            >>> print(f"Connected workers: {workers['count']}")
+        """
         return await self._get_rest_data("/worker") or {"count": 0, "workers": []}
 
     async def get_stats(self) -> Dict[str, Any]:
+        """获取系统统计信息（REST 接口）
+
+        通过 REST API 查询系统的统计信息，包括任务状态分布、Worker 数量等。
+
+        Returns:
+            统计信息字典，包含：
+                - total_tasks: 任务总数
+                - tasks_by_status: 按状态分布的任务数
+                - connected_workers: 已连接的 Worker 数
+                - running_tasks: 正在运行的任务数
+
+        Examples:
+            >>> stats = await client.get_stats()
+            >>> print(f"Total tasks: {stats.get('total_tasks', 0)}")
+        """
         return await self._get_rest_data("/stats") or {}
 
     async def _get_rest_data(self, path: str) -> Optional[Dict[str, Any]]:
