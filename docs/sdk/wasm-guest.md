@@ -1,6 +1,6 @@
 # WASM Guest SDK
 
-Lunaris 的 WASM Guest SDK 运行在被执行的 WASM 模块内部，面向 Rust、C/C++、Zig 等会被编译到 `wasm32-wasip1` 的语言。
+Lunaris 的 WASM Guest SDK 运行在被执行的 WASM 模块内部，面向 Rust、C/C++、Zig、Go 等会被编译到 `wasm32-wasip1` 的语言。
 
 它与 Python 客户端 SDK 不同：
 
@@ -13,6 +13,7 @@ Lunaris 的 WASM Guest SDK 运行在被执行的 WASM 模块内部，面向 Rust
 - C: `sdk/c/lunaris.h`
 - C++: `sdk/cpp/lunaris.hpp`
 - Zig: `sdk/zig/lunaris.zig`
+- Go: `sdk/go/lunaris.go`（experimental）
 
 ## 运行时约定
 
@@ -120,6 +121,29 @@ export fn wmain(a: i32, b: i32) i32 {
         return lunaris.simd.addChecked(a, b) catch a + b;
     }
     return a + b;
+}
+```
+
+## Go
+
+```go
+package main
+
+import (
+    "fmt"
+
+    lunaris "github.com/moyan/lunaris/sdk/go/lunaris"
+)
+
+//go:wasmexport wmain
+func wmain(a, b int32) int32 {
+    if ctx, err := lunaris.CurrentContext(); err == nil {
+        fmt.Printf("task=%d worker=%s\n", ctx.TaskID, ctx.WorkerVersion)
+    }
+    if value, err := lunaris.SIMDAddChecked(a, b); err == nil {
+        return value
+    }
+    return a + b
 }
 ```
 

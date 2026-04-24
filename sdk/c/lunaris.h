@@ -20,6 +20,50 @@ typedef enum lunaris_status {
     LUNARIS_STATUS_MISSING_CAPABILITY = 5,
 } lunaris_status_t;
 
+typedef struct lunaris_string_view {
+    const char *data;
+    size_t len;
+} lunaris_string_view_t;
+
+typedef struct lunaris_context {
+    uint64_t task_id;
+    char *worker_version;
+    char *host_capabilities_json;
+} lunaris_context_t;
+
+static inline const char *lunaris_status_string(lunaris_status_t status) {
+    switch (status) {
+        case LUNARIS_STATUS_OK:
+            return "ok";
+        case LUNARIS_STATUS_MISSING_ENV:
+            return "missing_env";
+        case LUNARIS_STATUS_INVALID_ARGUMENT:
+            return "invalid_argument";
+        case LUNARIS_STATUS_BUFFER_TOO_SMALL:
+            return "buffer_too_small";
+        case LUNARIS_STATUS_PARSE_ERROR:
+            return "parse_error";
+        case LUNARIS_STATUS_MISSING_CAPABILITY:
+            return "missing_capability";
+        default:
+            return "unknown";
+    }
+}
+
+static inline lunaris_string_view_t lunaris_string_view_from_cstr(const char *value) {
+    lunaris_string_view_t view;
+
+    if (!value) {
+        view.data = NULL;
+        view.len = 0;
+        return view;
+    }
+
+    view.data = value;
+    view.len = strlen(value);
+    return view;
+}
+
 static inline lunaris_status_t lunaris_copy_env(
     const char *name,
     char *buf,
@@ -46,6 +90,40 @@ static inline lunaris_status_t lunaris_copy_env(
     }
 
     memcpy(buf, value, value_len + 1);
+    return LUNARIS_STATUS_OK;
+}
+
+static inline lunaris_status_t lunaris_copy_env_owned(
+    const char *name,
+    char **out_value,
+    size_t *out_len
+) {
+    lunaris_status_t status;
+    size_t value_len = 0;
+    char *buffer;
+
+    if (!out_value) {
+        return LUNARIS_STATUS_INVALID_ARGUMENT;
+    }
+
+    *out_value = NULL;
+    status = lunaris_copy_env(name, NULL, 0, &value_len);
+    if (status != LUNARIS_STATUS_OK) {
+        return status;
+    }
+
+    buffer = (char *)malloc(value_len + 1);
+    if (!buffer) {
+        return LUNARIS_STATUS_INVALID_ARGUMENT;
+    }
+
+    status = lunaris_copy_env(name, buffer, value_len + 1, out_len);
+    if (status != LUNARIS_STATUS_OK) {
+        free(buffer);
+        return status;
+    }
+
+    *out_value = buffer;
     return LUNARIS_STATUS_OK;
 }
 
@@ -84,6 +162,57 @@ static inline lunaris_status_t lunaris_host_capabilities_json(
     size_t *out_len
 ) {
     return lunaris_copy_env(LUNARIS_HOST_CAPABILITIES_ENV, buf, buf_len, out_len);
+}
+
+static inline lunaris_status_t lunaris_context_load(lunaris_context_t *out_context) {
+    lunaris_status_t status;
+
+    if (!out_context) {
+        return LUNARIS_STATUS_INVALID_ARGUMENT;
+    }
+
+    out_context->task_id = 0;
+    out_context->worker_version = NULL;
+    out_context->host_capabilities_json = NULL;
+
+    status = lunaris_task_id(&out_context->task_id);
+    if (status != LUNARIS_STATUS_OK) {
+        return status;
+    }
+
+    status = lunaris_copy_env_owned(
+        LUNARIS_WORKER_VERSION_ENV,
+        &out_context->worker_version,
+        NULL
+    );
+    if (status != LUNARIS_STATUS_OK) {
+        return status;
+    }
+
+    status = lunaris_copy_env_owned(
+        LUNARIS_HOST_CAPABILITIES_ENV,
+        &out_context->host_capabilities_json,
+        NULL
+    );
+    if (status != LUNARIS_STATUS_OK) {
+        free(out_context->worker_version);
+        out_context->worker_version = NULL;
+        return status;
+    }
+
+    return LUNARIS_STATUS_OK;
+}
+
+static inline void lunaris_context_free(lunaris_context_t *context) {
+    if (!context) {
+        return;
+    }
+
+    free(context->worker_version);
+    free(context->host_capabilities_json);
+    context->worker_version = NULL;
+    context->host_capabilities_json = NULL;
+    context->task_id = 0;
 }
 
 static inline bool lunaris_has_capability(const char *name) {

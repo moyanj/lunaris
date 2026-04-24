@@ -11,6 +11,26 @@ pub const Error = error{
     MissingCapability,
 };
 
+pub const TaskContext = struct {
+    task_id: u64,
+    worker_version: []u8,
+    host_capabilities_json: []u8,
+
+    pub fn load(allocator: std.mem.Allocator) Error!TaskContext {
+        return .{
+            .task_id = try context.taskId(allocator),
+            .worker_version = try context.workerVersion(allocator),
+            .host_capabilities_json = try context.hostCapabilitiesJson(allocator),
+        };
+    }
+
+    pub fn deinit(self: *TaskContext, allocator: std.mem.Allocator) void {
+        allocator.free(self.worker_version);
+        allocator.free(self.host_capabilities_json);
+        self.* = undefined;
+    }
+};
+
 fn envOwned(allocator: std.mem.Allocator, name: []const u8) Error![]u8 {
     return std.process.getEnvVarOwned(allocator, name) catch |err| switch (err) {
         error.EnvironmentVariableNotFound => Error.MissingEnv,
@@ -31,6 +51,10 @@ pub const context = struct {
 
     pub fn hostCapabilitiesJson(allocator: std.mem.Allocator) Error![]u8 {
         return envOwned(allocator, host_capabilities_env);
+    }
+
+    pub fn current(allocator: std.mem.Allocator) Error!TaskContext {
+        return TaskContext.load(allocator);
     }
 
     pub fn hasCapability(name: []const u8) bool {

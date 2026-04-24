@@ -3,9 +3,12 @@
 
 #include "../c/lunaris.h"
 
+#include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace lunaris {
 
@@ -16,6 +19,41 @@ enum class Status {
     buffer_too_small = LUNARIS_STATUS_BUFFER_TOO_SMALL,
     parse_error = LUNARIS_STATUS_PARSE_ERROR,
     missing_capability = LUNARIS_STATUS_MISSING_CAPABILITY,
+};
+
+struct TaskContext {
+    std::uint64_t task_id;
+    std::string worker_version;
+    std::string host_capabilities_json;
+
+    static std::optional<TaskContext> current() {
+        lunaris_context_t raw{};
+        if (lunaris_context_load(&raw) != LUNARIS_STATUS_OK) {
+            return std::nullopt;
+        }
+
+        TaskContext context{
+            raw.task_id,
+            raw.worker_version ? std::string(raw.worker_version) : std::string(),
+            raw.host_capabilities_json ? std::string(raw.host_capabilities_json) : std::string(),
+        };
+        lunaris_context_free(&raw);
+        return std::optional<TaskContext>(std::move(context));
+    }
+
+    std::vector<std::string> hostCapabilities() const {
+        std::vector<std::string> items;
+        const char* cursor = host_capabilities_json.c_str();
+        while ((cursor = std::strchr(cursor, '"')) != nullptr) {
+            const char* end = std::strchr(cursor + 1, '"');
+            if (!end) {
+                return items;
+            }
+            items.emplace_back(cursor + 1, static_cast<std::size_t>(end - (cursor + 1)));
+            cursor = end + 1;
+        }
+        return items;
+    }
 };
 
 inline std::optional<std::string> copyEnv(const char* name) {
