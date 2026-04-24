@@ -1,0 +1,62 @@
+services:
+  master:
+    build:
+      context: .
+      dockerfile: Dockerfile.master
+    image: lunaris/master:local
+    environment:
+      CLIENT_TOKEN: ${CLIENT_TOKEN:-change-me-client-token}
+      WORKER_TOKEN: ${WORKER_TOKEN:-change-me-worker-token}
+      LUNARIS_STATE_DIR: /var/lib/lunaris/state
+      LUNARIS_DEFAULT_MAX_FUEL: ${LUNARIS_DEFAULT_MAX_FUEL:-1000000}
+      LUNARIS_DEFAULT_MAX_MEMORY_BYTES: ${LUNARIS_DEFAULT_MAX_MEMORY_BYTES:-67108864}
+      LUNARIS_DEFAULT_MAX_MODULE_BYTES: ${LUNARIS_DEFAULT_MAX_MODULE_BYTES:-1048576}
+      LUNARIS_MAX_FUEL: ${LUNARIS_MAX_FUEL:-10000000}
+      LUNARIS_MAX_MEMORY_BYTES: ${LUNARIS_MAX_MEMORY_BYTES:-536870912}
+      LUNARIS_MAX_MODULE_BYTES: ${LUNARIS_MAX_MODULE_BYTES:-4194304}
+    ports:
+      - "${MASTER_PORT:-8000}:8000"
+    volumes:
+      - ./deploy/state:/var/lib/lunaris/state
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  rust-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-worker
+    image: lunaris/rust-worker:local
+    depends_on:
+      master:
+        condition: service_healthy
+    environment:
+      WORKER_TOKEN: ${WORKER_TOKEN:-change-me-worker-token}
+    command:
+      - lunaris-worker
+      - --master
+      - ws://master:8000/worker
+      - --token
+      - ${WORKER_TOKEN:-change-me-worker-token}
+      - --concurrency
+      - ${RUST_WORKER_CONCURRENCY:-4}
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    depends_on:
+      master:
+        condition: service_healthy
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/data:/prometheus
+    restart: unless-stopped
+

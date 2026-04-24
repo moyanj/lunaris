@@ -21,6 +21,7 @@ from lunaris.master.model import (
     WorkerRecord,
     WorkerStatus,
 )
+from lunaris.master.metrics import MasterMetrics
 from lunaris.master.store_base import StateStore
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.proto.worker_pb2 import ControlCommand, NodeRegistration, NodeRegistrationReply, NodeStatus
@@ -86,9 +87,11 @@ class WorkerManager:
         self,
         store: StateStore,
         notify_scheduler: Callable[[str], Awaitable[None]],
+        metrics: MasterMetrics,
     ):
         self.store = store
         self.notify_scheduler = notify_scheduler
+        self.metrics = metrics
         self.workers: List[Worker] = []
 
     async def sync_worker_state(self, worker: Worker) -> None:
@@ -116,6 +119,8 @@ class WorkerManager:
         worker = Worker(ws, registration)
         logger.info("Registering worker: {}", registration.name)
         self.workers.append(worker)
+        self.metrics.worker_registrations_total.inc()
+        self.metrics.connected_workers.set(len(self.workers))
         self.store.workers[worker.node_id] = WorkerRecord(
             worker_id=worker.node_id,
             name=registration.name,
@@ -206,6 +211,8 @@ class WorkerManager:
     ) -> None:
         if worker in self.workers:
             self.workers.remove(worker)
+        self.metrics.worker_disconnects_total.labels(status=status.value).inc()
+        self.metrics.connected_workers.set(len(self.workers))
         record = self.store.workers.get(worker.node_id)
         if record:
             record.connected = False
@@ -277,11 +284,13 @@ class TaskManager:
         self,
         store: StateStore,
         notify_scheduler: Callable[[str], Awaitable[None]],
+        metrics: MasterMetrics,
         lease_timeout_seconds: int = 30,
         retry_delay_seconds: int = 5,
     ):
         self.store = store
         self.notify_scheduler = notify_scheduler
+        self.metrics = metrics
         self.task_queue: asyncio.PriorityQueue[Task] = asyncio.PriorityQueue()
         self._queued_task_ids: set[int] = set()
         self._tasks_dict: Dict[int, Task] = self.store.tasks
@@ -292,6 +301,16 @@ class TaskManager:
         self.retry_delay_seconds = retry_delay_seconds
         self.subscribers: dict[int, set[WebSocket]] = defaultdict(set)
         self._recovery_dirty = self._recover_state()
+        self._refresh_metrics()
+
+    def _refresh_metrics(self) -> None:
+        status_counts = {status.value: 0 for status in TaskStatus}
+        for task in self._tasks_dict.values():
+            status_counts[task.status.value] += 1
+        for status, count in status_counts.items():
+            self.metrics.tasks_by_status.labels(status=status).set(count)
+        self.metrics.task_queue_size.set(self.task_queue.qsize())
+        self.metrics.running_tasks.set(len(self.running_tasks))
 
     async def _record_event(
         self,
@@ -366,13 +385,16 @@ class TaskManager:
             return
         await self._persist()
         self._recovery_dirty = False
+        self._refresh_metrics()
 
     async def add_task(self, task: Task, ws: Optional[WebSocket] = None) -> None:
         task.mark_queued()
         self._tasks_dict[task.task_id] = task
+        self.metrics.tasks_submitted_total.inc()
         if ws:
             self.subscribe(task.task_id, ws)
         self._enqueue_task(task)
+        self._refresh_metrics()
         await self._persist()
         await self._record_event("task.created", task=task)
         await self._record_event("task.queued", task=task)
@@ -464,6 +486,7 @@ class TaskManager:
             task.mark_cancel_requested()
             await self._record_event("task.cancel_requested", task=task)
         await self._persist()
+        self._refresh_metrics()
         await self.notify_scheduler("task.cancelled")
         return task
 
@@ -479,10 +502,12 @@ class TaskManager:
         if task.can_retry:
             # 重试不会立即回队列，而是先进入 RETRY_WAIT，避免瞬时抖动反复派发。
             task.schedule_retry(self.retry_delay_seconds, reason)
+            self.metrics.task_retries_total.inc()
             await self._record_event("task.retry_scheduled", task=task, payload={"reason": reason})
             await self.notify_scheduler("task.retry_scheduled")
             return True
         task.mark_failed(error=reason)
+        self.metrics.task_results_total.labels(status=TaskStatus.FAILED.value).inc()
         await self._record_event("task.failed", task=task, payload={"reason": reason})
         return False
 
@@ -498,6 +523,7 @@ class TaskManager:
         self.attempts[attempt.attempt_id] = attempt
         worker.add_task(task.task_id)
         self.running_tasks[task.task_id] = task
+        self._refresh_metrics()
         await self._persist()
         await self._record_event(
             "task.leased",
@@ -541,6 +567,7 @@ class TaskManager:
                 requeued_task_ids.append(task_id)
 
         await self._persist()
+        self._refresh_metrics()
         if requeued_task_ids:
             logger.warning(
                 "Requeued {} task(s) from worker {} due to {}: {}",
@@ -579,6 +606,7 @@ class TaskManager:
             active_attempt.accepted_at = datetime.now()
             active_attempt.mark_running()
         await self._persist()
+        self._refresh_metrics()
         await self._record_event(
             "task.running",
             task=task,
@@ -611,6 +639,7 @@ class TaskManager:
                 expired_task_ids.append(task.task_id)
         if expired_task_ids:
             await self._persist()
+            self._refresh_metrics()
             logger.warning(
                 "Requeued {} task(s) after lease expiry: {}",
                 len(expired_task_ids),
@@ -668,6 +697,8 @@ class TaskManager:
             )
         elif result.succeeded:
             task.mark_succeeded(payload)
+            self.metrics.task_results_total.labels(status=TaskStatus.SUCCEEDED.value).inc()
+            self.metrics.task_execution_ms.observe(payload.time)
             await self._record_event(
                 "task.succeeded",
                 task=task,
@@ -685,8 +716,11 @@ class TaskManager:
             else:
                 task.result = payload
                 task.last_error = payload.stderr.decode("utf-8", errors="replace")
+                self.metrics.task_results_total.labels(status=TaskStatus.FAILED.value).inc()
+                self.metrics.task_execution_ms.observe(payload.time)
 
         await self._persist()
+        self._refresh_metrics()
         await self.notify_scheduler("task.finished")
 
         if task.is_terminal and task.result:
@@ -725,5 +759,6 @@ class TaskManager:
             ready.append(task.task_id)
         if ready:
             await self._persist()
+            self._refresh_metrics()
             await self.notify_scheduler("task.retry_ready")
         return ready

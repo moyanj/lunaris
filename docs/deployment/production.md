@@ -91,14 +91,23 @@ lunaris master \
 ### 健康检查
 
 ```bash
+# 存活检查
+curl http://localhost:8000/livez
+
+# 就绪检查
+curl http://localhost:8000/readyz
+
 # 检查系统状态
 curl -H "X-Client-Token: $TOKEN" http://localhost:8000/stats
 
 # 检查工作节点
 curl -H "X-Client-Token: $TOKEN" http://localhost:8000/worker
+
+# Prometheus 指标
+curl http://localhost:8000/metrics
 ```
 
-### Prometheus 集成（未来支持）
+### Prometheus 集成
 
 ```yaml
 # prometheus.yml

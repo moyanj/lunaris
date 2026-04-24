@@ -14,6 +14,7 @@ from lunaris.proto.worker_pb2 import (
 from lunaris.proto.common_pb2 import Envelope
 import lunaris.proto.worker_pb2 as worker_pb2
 from lunaris.master.manager import WorkerManager, TaskManager
+from lunaris.master.metrics import MasterMetrics
 from lunaris.master.model import Task, WorkerStatus
 from lunaris.master.store import PersistentStateStore
 from contextlib import asynccontextmanager
@@ -44,6 +45,7 @@ class AppState:
         self.store = PersistentStateStore(self.state_dir)
         self.worker_manager: Optional[WorkerManager] = None
         self.task_manager: Optional[TaskManager] = None
+        self.metrics = MasterMetrics()
         self.scheduler_events: asyncio.Queue[str] = asyncio.Queue()
         self.client_token: str = os.environ.get("CLIENT_TOKEN", secrets.token_hex(16))
         self.worker_token: str = os.environ.get("WORKER_TOKEN", secrets.token_hex(16))
@@ -66,8 +68,16 @@ class AppState:
 
     async def initialize(self) -> None:
         await self.store.load()
-        self.worker_manager = WorkerManager(self.store, self.notify_scheduler)
-        self.task_manager = TaskManager(self.store, self.notify_scheduler)
+        self.worker_manager = WorkerManager(
+            self.store,
+            self.notify_scheduler,
+            self.metrics,
+        )
+        self.task_manager = TaskManager(
+            self.store,
+            self.notify_scheduler,
+            self.metrics,
+        )
 
     async def notify_scheduler(self, reason: str) -> None:
         # 调度循环基于事件触发，任何容量或任务状态变化都投递一次唤醒事件。

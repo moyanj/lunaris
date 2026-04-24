@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.lunaris-state
+dist
+build
+docs
+mkdocs.yml
+testwasm
+tests
+test_localhost_*.py
+

@@ -1,7 +1,7 @@
 import secrets
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, WebSocket
 from fastapi.websockets import WebSocketDisconnect, WebSocketState
 from lunaris.master.web_app import get_app_state, AppState
 from lunaris.master.model import Task, TaskStatus
@@ -13,6 +13,34 @@ from lunaris.runtime import ExecutionLimits
 import orjson
 
 app = APIRouter()
+
+
+@app.get("/livez")
+async def livez():
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+async def readyz(state: AppState = Depends(get_app_state)):
+    ready = state.worker_manager is not None and state.task_manager is not None
+    status_code = 200 if ready else 503
+    return Response(
+        content='{"status":"ok"}' if ready else '{"status":"not_ready"}',
+        status_code=status_code,
+        media_type="application/json",
+    )
+
+
+@app.get("/metrics")
+async def metrics(state: AppState = Depends(get_app_state)):
+    if state.task_manager:
+        state.task_manager._refresh_metrics()
+    if state.worker_manager:
+        state.metrics.connected_workers.set(len(state.worker_manager.workers))
+    return Response(
+        content=state.metrics.render_latest(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 def require_client_token(
