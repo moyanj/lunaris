@@ -147,7 +147,11 @@ impl Worker {
             r#type: worker_type as i32,
         };
 
-        let bytes = proto::to_bytes(&registration.encode_to_vec(), MessageType::NodeRegistration, self.use_compress)?;
+        let bytes = proto::to_bytes(
+            &registration.encode_to_vec(),
+            MessageType::NodeRegistration,
+            self.use_compress,
+        )?;
         write.send(Message::Binary(bytes.into())).await?;
 
         Ok(())
@@ -190,8 +194,11 @@ impl Worker {
                     current_task: current_tasks as u32,
                 };
 
-                if let Ok(bytes) = proto::to_bytes(&status.encode_to_vec(), MessageType::NodeStatus, use_compress)
-                {
+                if let Ok(bytes) = proto::to_bytes(
+                    &status.encode_to_vec(),
+                    MessageType::NodeStatus,
+                    use_compress,
+                ) {
                     if let Ok(mut write_guard) = write.try_lock() {
                         let _ = write_guard.send(Message::Binary(bytes.into())).await;
                     }
@@ -225,7 +232,11 @@ impl Worker {
             attempt,
         };
 
-        let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult, self.use_compress)?;
+        let bytes = proto::to_bytes(
+            &task_result.encode_to_vec(),
+            MessageType::TaskResult,
+            self.use_compress,
+        )?;
         write.send(Message::Binary(bytes.into())).await?;
 
         Ok(())
@@ -257,8 +268,14 @@ impl Worker {
                 succeeded: false,
             };
             let mut write_guard = write.lock().await;
-            Self::report_result_static(&mut write_guard, result, task.task_id, task.attempt, self.use_compress)
-                .await?;
+            Self::report_result_static(
+                &mut write_guard,
+                result,
+                task.task_id,
+                task.attempt,
+                self.use_compress,
+            )
+            .await?;
             return Ok(());
         }
 
@@ -373,8 +390,14 @@ impl Worker {
                         result
                     };
                     let mut write_guard = write_arc_clone.lock().await;
-                    if let Err(e) =
-                        Self::report_result_static(&mut write_guard, result, task_id, attempt, use_compress).await
+                    if let Err(e) = Self::report_result_static(
+                        &mut write_guard,
+                        result,
+                        task_id,
+                        attempt,
+                        use_compress,
+                    )
+                    .await
                     {
                         error!("Failed to report result: {}", e);
                     }
@@ -455,7 +478,11 @@ impl Worker {
             attempt,
         };
 
-        let bytes = proto::to_bytes(&task_result.encode_to_vec(), MessageType::TaskResult, use_compress)?;
+        let bytes = proto::to_bytes(
+            &task_result.encode_to_vec(),
+            MessageType::TaskResult,
+            use_compress,
+        )?;
         write.send(Message::Binary(bytes.into())).await?;
         Ok(())
     }
@@ -477,7 +504,11 @@ impl Worker {
             node_id,
             attempt,
         };
-        let bytes = proto::to_bytes(&accepted.encode_to_vec(), MessageType::TaskAccepted, use_compress)?;
+        let bytes = proto::to_bytes(
+            &accepted.encode_to_vec(),
+            MessageType::TaskAccepted,
+            use_compress,
+        )?;
         write.send(Message::Binary(bytes.into())).await?;
         Ok(())
     }
