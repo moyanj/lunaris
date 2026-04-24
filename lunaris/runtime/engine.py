@@ -2,12 +2,22 @@ import os
 import orjson
 import time
 from dataclasses import dataclass
+from importlib import metadata
 
 from wasmtime import Config, Engine, Store, WasiConfig, Module, Linker
 import tempfile
 
 from lunaris.runtime.capabilities import HostContext, REGISTRY, normalize_host_capabilities
 from lunaris.runtime.limits import ExecutionLimits
+
+INJECTED_TASK_ID_ENV = "LUNARIS_TASK_ID"
+INJECTED_WORKER_VERSION_ENV = "LUNARIS_WORKER_VERSION"
+INJECTED_HOST_CAPABILITIES_ENV = "LUNARIS_HOST_CAPABILITIES"
+
+try:
+    WORKER_VERSION = metadata.version("lunaris")
+except metadata.PackageNotFoundError:
+    WORKER_VERSION = "unknown"
 
 
 @dataclass
@@ -32,6 +42,7 @@ class WasmSandbox:
         module_code: bytes,
         *args,
         entry: str = "main",
+        task_id: int | None = None,
         env: dict[str, str] | None = None,
         wasi_args: list[str] | None = None,
         execution_limits: ExecutionLimits | None = None,
@@ -58,8 +69,17 @@ class WasmSandbox:
             store.set_limits(memory_size=limits.max_memory_bytes)
         if limits.max_fuel > 0:
             store.set_fuel(limits.max_fuel)
+        wasi_env = dict(env or {})
+        normalized_capabilities = normalize_host_capabilities(host_capabilities)
+        if task_id is not None:
+            wasi_env[INJECTED_TASK_ID_ENV] = str(task_id)
+        wasi_env[INJECTED_WORKER_VERSION_ENV] = WORKER_VERSION
+        wasi_env[INJECTED_HOST_CAPABILITIES_ENV] = orjson.dumps(
+            normalized_capabilities
+        ).decode("utf-8")
+
         wasi = WasiConfig()
-        wasi.env = list((env or {}).items())
+        wasi.env = list(wasi_env.items())
         wasi.argv = list(wasi_args or [])
 
         fd, stdout_temp = tempfile.mkstemp()
@@ -69,7 +89,6 @@ class WasmSandbox:
         os.close(fd)
         wasi.stderr_file = stderr_temp
         store.set_wasi(wasi)
-        normalized_capabilities = normalize_host_capabilities(host_capabilities)
         REGISTRY.register_all(
             linker,
             store,

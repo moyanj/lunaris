@@ -3,6 +3,7 @@ import json
 import os
 import secrets
 import platform
+from contextlib import suppress
 import psutil
 from typing import Optional
 from websockets import ConnectionClosedError, State
@@ -74,6 +75,7 @@ class Worker:
         self.num_running = 0
         self.drain_enabled = False
         self.cancelled_tasks: set[int] = set()
+        self._heartbeat_task: Optional[asyncio.Task] = None
 
     async def connect(self) -> None:
         """建立与Master的WebSocket连接"""
@@ -103,15 +105,24 @@ class Worker:
 
     async def disconnect(self) -> None:
         """关闭连接"""
-        if self.ws and self.ws.state == State.OPEN:
-            await self.ws.send(
-                proto2bytes(
-                    UnregisterNode(
-                        node_id=self.node_id,
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+            self._heartbeat_task = None
+
+        ws = self.ws
+        self.ws = None
+        if ws and ws.state == State.OPEN:
+            if self.node_id:
+                await ws.send(
+                    proto2bytes(
+                        UnregisterNode(
+                            node_id=self.node_id,
+                        )
                     )
                 )
-            )
-            self.ws = None
+            await ws.close()
         if self.runner:
             await self.runner.close()
             self.runner = None
@@ -167,9 +178,10 @@ class Worker:
             succeeded=result.succeeded,
             attempt=attempt,
         )
-        self.num_running -= 1
-
-        await self.ws.send(proto2bytes(proto))
+        try:
+            await self.ws.send(proto2bytes(proto))
+        finally:
+            self.num_running = max(self.num_running - 1, 0)
 
     async def handle_task(self, task: Task) -> None:
         """处理接收到的任务"""
@@ -235,7 +247,7 @@ class Worker:
             await self.connect()
             await self.register()
 
-            asyncio.create_task(self.heartbeat())
+            self._heartbeat_task = asyncio.create_task(self.heartbeat())
             if self.runner:
                 self.runner.start()
 
