@@ -1,0 +1,46 @@
+idf_component_register(
+    SRCS
+        "../../src/app_esp32.c"
+        "../../src/platform_esp32.c"
+        "../../src/wifi_esp32.c"
+        "../../src/engine.c"
+        "../../src/proto.c"
+        "../../src/websocket.c"
+        "../../src/worker.c"
+        "../../third_party/nanopb/pb_common.c"
+        "../../third_party/nanopb/pb_decode.c"
+        "../../third_party/nanopb/pb_encode.c"
+        "../../third_party/wasm3/source/m3_api_libc.c"
+        "../../third_party/wasm3/source/m3_api_meta_wasi.c"
+        "../../third_party/wasm3/source/m3_api_tracer.c"
+        "../../third_party/wasm3/source/m3_bind.c"
+        "../../third_party/wasm3/source/m3_code.c"
+        "../../third_party/wasm3/source/m3_compile.c"
+        "../../third_party/wasm3/source/m3_core.c"
+        "../../third_party/wasm3/source/m3_env.c"
+        "../../third_party/wasm3/source/m3_exec.c"
+        "../../third_party/wasm3/source/m3_function.c"
+        "../../third_party/wasm3/source/m3_info.c"
+        "../../third_party/wasm3/source/m3_module.c"
+        "../../third_party/wasm3/source/m3_parse.c"
+        "../../generated/common.pb.c"
+        "../../generated/worker.pb.c"
+    INCLUDE_DIRS
+        "../../src"
+        "../../generated"
+        "../../third_party/nanopb"
+        "../../third_party/wasm3/source"
+    REQUIRES
+        esp_event
+        esp_netif
+        esp_timer
+        esp_wifi
+        esp_websocket_client
+)
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    LUNARIS_MCU_USE_WASM3=1
+    ESP32=1
+    M3_IN_IRAM=1
+    M3_HAS_TAIL_CALL=0
+)

@@ -1,0 +1,17 @@
+# Host build output
+/build/
+
+# ESP-IDF build output
+/esp32/build/
+/esp32/.idf/
+/esp32/dependencies.lock
+/esp32/managed_components/
+
+# Downloaded third-party dependencies
+/third_party/
+
+# Generated nanopb sources
+/generated/
+
+# Editor and OS noise
+.DS_Store

@@ -1,0 +1,22 @@
+diff --git a/source/m3_parse.c b/source/m3_parse.c
+index 4bcfd54..2f16b2f 100644
+--- a/source/m3_parse.c
++++ b/source/m3_parse.c
+@@ -499,7 +499,7 @@ _catch: return result;
+ 
+ M3Result  ParseSection_Name  (M3Module * io_module, bytes_t i_bytes, cbytes_t i_end)
+ {
+-    M3Result result;
++    M3Result result = m3Err_none;
+ 
+     cstr_t name;
+ 
+@@ -547,7 +547,7 @@ M3Result  ParseSection_Name  (M3Module * io_module, bytes_t i_bytes, cbytes_t i_
+ 
+ M3Result  ParseSection_Custom  (M3Module * io_module, bytes_t i_bytes, cbytes_t i_end)
+ {
+-    M3Result result;
++    M3Result result = m3Err_none;
+ 
+     cstr_t name;
+ _   (Read_utf8 (& name, & i_bytes, i_end));

@@ -1,0 +1,23 @@
+menu "Lunaris MCU Worker"
+
+config LUNARIS_WIFI_SSID
+    string "WiFi SSID"
+    default ""
+
+config LUNARIS_WIFI_PASSWORD
+    string "WiFi password"
+    default ""
+
+config LUNARIS_MASTER_URI
+    string "Master WebSocket URI"
+    default "ws://192.168.1.100:8000/worker"
+
+config LUNARIS_WORKER_TOKEN
+    string "Worker token"
+    default ""
+
+config LUNARIS_WORKER_NAME
+    string "Worker name"
+    default "lunaris-esp32"
+
+endmenu
