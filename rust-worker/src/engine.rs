@@ -49,6 +49,7 @@ const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///   - stderr: 标准错误输出内容
 ///   - time: 执行耗时（毫秒）
 ///   - succeeded: 是否执行成功
+#[derive(Debug, Clone)]
 pub struct WasmResult {
     pub result: String,
     pub stdout: Vec<u8>,
