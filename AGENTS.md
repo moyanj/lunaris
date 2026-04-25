@@ -1,15 +1,32 @@
 # Lunaris 知识库
 
-**生成时间：** 2026-04-17
-**提交版本：** 96f409d
+**生成时间：** 2026-04-25
+**提交版本：** 8c6f84c
 **分支：** main
 
 ## 概述
 
-分布式WASM执行器，包含Python服务（FastAPI主节点 + Python工作节点 + 异步/同步SDK）和高性能Rust工作节点。使用WebSocket进行工作节点通信，Protobuf协议，wasmtime执行WASM。
+分布式WASM执行器，包含Python服务（FastAPI主节点 + Python工作节点 + 异步/同步SDK）、高性能Rust工作节点、ESP32 MCU工作节点，以及多语言Guest SDK。使用WebSocket进行工作节点通信，Protobuf协议，wasmtime执行WASM，支持持久化事件驱动调度和状态管理。
 
 ## 项目结构
 
+```
+lunaris/
+├── master/     # FastAPI任务调度器 + WebSocket端点 + 状态持久化
+├── worker/     # Python工作节点（多进程WASM执行器）
+├── client/     # SDK（LunarisClient异步，SyncLunarisClient同步）
+├── runtime/    # WASM沙箱 + ExecutionLimits
+├── proto/      # 生成的protobuf文件（禁止编辑）
+├── cli/        # argparse入口点
+└── utils.py    # 协议编解码（Envelope+zstd）、Snowflake ID、Rest响应
+rust-worker/    # Rust工作节点（wasmtime + mimalloc + tokio）
+mcu-worker/     # ESP32 MCU工作节点（wasm3 + nanopb，C实现）
+sdk/            # 多语言Guest SDK（Rust/C/C++/Zig/Go/AssemblyScript/Grain）
+proto/          # Protobuf源定义（*.proto + build.sh）
+testwasm/       # 示例WASM项目（非测试）
+tests/          # pytest测试（WASI Preview1、源码编译语言）
+deploy/         # Docker Compose部署 + Prometheus配置
+docs/           # 项目文档（架构、SDK、部署、CLI）
 ```
 lunaris/
 ├── master/     # FastAPI任务调度器 + WebSocket端点
@@ -29,15 +46,24 @@ testwasm/       # 示例WASM项目（非测试）
 |------|------|------|
 | 添加REST端点 | `lunaris/master/api.py` | FastAPI路由，需要认证令牌 |
 | 修改任务调度 | `lunaris/master/manager.py` | TaskManager, WorkerManager类 |
+| WebSocket主循环 | `lunaris/master/web_app.py` | AppState, distribute_tasks, 心跳+租约检测 |
 | 工作节点连接逻辑 | `lunaris/worker/main.py` | WebSocket客户端，心跳循环 |
 | WASM执行限制 | `lunaris/runtime/limits.py` | ExecutionLimits数据类 |
 | WASM沙箱引擎 | `lunaris/runtime/engine.py` | WasmSandbox类，wasmtime封装 |
 | 客户端SDK异步 | `lunaris/client/client.py` | LunarisClient, submit_task() |
 | 客户端SDK同步 | `lunaris/client/sync.py` | SyncLunarisClient封装 |
+| 源码编译助手 | `lunaris/client/utils.py` | compile_source, HAS_* 编译器检测 |
+| 数据模型 | `lunaris/master/model.py` | Task, TaskStatus, TaskAttempt, TaskEvent |
+| 状态持久化 | `lunaris/master/store_base.py` | StateStore抽象基类 |
+| 文件状态后端 | `lunaris/master/file_store.py` | FileStateStore 快照+事件日志 |
+| Prometheus指标 | `lunaris/master/metrics.py` | MasterMetrics, Counter/Gauge/Histogram |
+| 协议编解码 | `lunaris/utils.py` | proto2bytes, bytes2proto, MESSAGE_TYPE_MAP |
 | Rust工作节点核心 | `rust-worker/src/core.rs` | Worker结构体，WebSocket + 任务分发 |
 | Rust WASM引擎 | `rust-worker/src/engine.rs` | Runner, run_wasm(), 资源限制 |
 | Protobuf协议 | `proto/*.proto` | 编辑源文件，运行build.sh |
 | CLI命令 | `lunaris/cli/main.py` | master/worker子命令 |
+| MCU工作节点 | `mcu-worker/src/worker.c` | C实现，wasm3运行时，nanopb协议 |
+| Guest SDK | `sdk/` | 多语言WASM Guest SDK |
 
 ## 代码地图
 
@@ -46,15 +72,18 @@ testwasm/       # 示例WASM项目（非测试）
 | 符号 | 类型 | 位置 | 用途 |
 |------|------|------|------|
 | `main()` | 函数 | `lunaris/cli/main.py:124` | CLI入口，argparse |
-| `Worker` | 类 | `lunaris/worker/main.py:32` | Python工作节点 |
-| `Runner` | 类 | `lunaris/worker/core.py:63` | WASM执行器（ProcessPool） |
-| `TaskManager` | 类 | `lunaris/master/manager.py:154` | 优先级队列 + 任务跟踪 |
-| `WorkerManager` | 类 | `lunaris/master/manager.py:69` | 工作节点注册 + 心跳 |
+| `Worker` | 类 | `lunaris/worker/main.py:36` | Python工作节点 |
+| `Runner` | 类 | `lunaris/worker/core.py:107` | WASM执行器（ProcessPool） |
+| `TaskManager` | 类 | `lunaris/master/manager.py:457` | 优先级队列 + 任务跟踪 + 重试 |
+| `WorkerManager` | 类 | `lunaris/master/manager.py:165` | 工作节点注册 + 心跳 + drain |
+| `AppState` | 类 | `lunaris/master/web_app.py:34` | 主节点共享状态（limits + store） |
 | `LunarisClient` | 类 | `lunaris/client/client.py:27` | 异步SDK |
 | `SyncLunarisClient` | 类 | `lunaris/client/sync.py:12` | 同步SDK封装 |
-| `WasmSandbox` | 类 | `lunaris/runtime/engine.py:21` | WASM执行封装 |
+| `WasmSandbox` | 类 | `lunaris/runtime/engine.py:74` | WASM执行封装 |
 | `ExecutionLimits` | 类 | `lunaris/runtime/limits.py:18` | 资源限制配置 |
-| `IDGenerator` | 类 | `lunaris/utils.py:98` | Snowflake ID生成器 |
+| `IDGenerator` | 类 | `lunaris/utils.py:114` | Snowflake ID生成器 |
+| `StateStore` | 类 | `lunaris/master/store_base.py:9` | 持久化抽象基类 |
+| `MasterMetrics` | 类 | `lunaris/master/metrics.py:6` | Prometheus指标 |
 
 ### Rust入口点
 
@@ -75,7 +104,7 @@ testwasm/       # 示例WASM项目（非测试）
 
 ### Rust
 - **格式化**：提交前运行 `cargo fmt`
-- **版本**：Cargo.toml 中 `edition = "2024"`（应为2021 - 需要修复）
+- **版本**：Cargo.toml 中 `edition = "2021"`（已修复）
 - **内存**：使用 `mimalloc` 全局分配器
 - **异步**：tokio运行时，WASM执行使用 `spawn_blocking`
 
@@ -166,3 +195,18 @@ LUNARIS_WORKER_*       # 执行限制覆盖
 - **Rust版本错误**：Cargo.toml 中 `edition = "2024"`（不存在，应为"2021"）
 - **testwasm用途**：示例WASM项目，非正式测试套件
 - 参见子目录AGENTS.md了解模块特定细节
+
+## 新增模块
+
+### MCU Worker (`mcu-worker/`)
+- ESP32固件实现，wasm3运行时，nanopb协议
+- 静态内存分配友好，单任务并发模型
+- 跨平台抽象层，支持ESP32/STM32
+
+### Guest SDK (`sdk/`)
+- 多语言WASM Guest SDK：Rust/C/C++/Zig/Go/AssemblyScript/Grain
+- 支持读取运行时上下文和宿主能力
+
+### 状态持久化
+- 事件驱动架构支持可插拔后端
+- 快照+事件日志模式确保幂等性

@@ -4,7 +4,7 @@
 
 ## 概述
 
-用户SDK：异步 `LunarisClient` + 同步 `SyncLunarisClient`，WebSocket任务提交，多语言源码编译助手。新增请求ID匹配和幂等性支持。
+用户SDK：异步 `LunarisClient` + 同步 `SyncLunarisClient`，WebSocket任务提交，多语言源码编译助手。支持请求ID匹配、幂等性、批量提交。
 
 ## 代码导航
 
@@ -13,12 +13,14 @@
 | 异步客户端 | `client.py:27` | `LunarisClient.connect`, `submit_task` |
 | 同步封装 | `sync.py:12` | `SyncLunarisClient`（线程 + asyncio循环） |
 | 回调提交 | `client.py:53` | `submit_task(callback=...)` |
-| 等待结果 | `client.py:421` | `wait_for_task(task_id, timeout)` |
+| 等待结果 | `client.py:612` | `wait_for_task(task_id, timeout)` |
+| 批量提交 | `client.py:318` | `submit_task_many`, 批量+超时 |
 | 源码编译 | `utils.py` | `compile_source`, `compile_c/cxx/zig/rust/go/assemblyscript/grain` |
 | 编译器检测 | `utils.py` | `check_wasi_sdk`, `check_rustc`, `HAS_*` 全局变量 |
-| REST回退 | `client.py:333` | `_get_rest_data` 状态查询 |
-| **请求ID匹配** | `client.py` | `request_id`, `_create_futures` 字典 |
-| **幂等性** | `client.py` | `idempotency_key` 参数 |
+| REST回退 | `client.py:524` | `_get_rest_data` 状态查询（非提交） |
+| 请求ID匹配 | `client.py` | `request_id`, `_create_futures` 字典 |
+| 幂等性 | `client.py` | `idempotency_key` 参数 |
+| 取消订阅 | `client.py:553` | `unsubscribe_tasks`, 批量取消 |
 
 ## 开发约定
 
@@ -32,19 +34,17 @@
 - 在 `_receive_messages()` 收到 `TaskResult` 时调用
 - 调用后自动移除（一次性）
 
-### 请求ID匹配（新功能）
+### 请求ID匹配
 - 每次 `submit_task()` 通过 `secrets.token_hex(16)` 生成唯一 `request_id`
 - `_create_futures` 字典映射 `request_id` → `Future[TaskCreateResponse]`
 - 主节点响应包含匹配的 `request_id`，确保可靠的任务创建跟踪
-- 替代旧的队列方式，支持更好的并发请求处理
 
-### 幂等性支持（新功能）
+### 幂等性支持
 - 可选的 `idempotency_key` 参数防止重复提交
 - 主节点基于幂等键在时间窗口内去重
-- 适用于重试场景，避免创建重复任务
 
 ### 源码编译
-- `submit_c/cxx/zig/rust/go/assemblyscript/grain`：`submit_source(language, code)` 的简写
+- `submit_c/cxx/zig/rust/go/assemblyscript/grain`：简写方法
 - 本地编译，WASM字节码发送到主节点
 - 全局 `HAS_*` 标志缓存编译器可用性
 
@@ -54,7 +54,7 @@
 
 ## 反模式（本模块）
 
-1. **提交前连接**：必须先调用 `connect()` 或使用上下文管理器
+1. **提交前未连接**：必须先调用 `connect()` 或使用上下文管理器
 2. **超时无清理**：使用 `wait_for_task(timeout)` + 处理 `TimeoutError`
 3. **硬编码编译器路径**：使用 `check_*` 函数验证工具链
 4. **跳过回调注册**：异步结果需要注册回调或使用 `wait_for_task`
