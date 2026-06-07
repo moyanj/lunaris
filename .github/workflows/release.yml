@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  python-test:
+    name: Python Test
+    runs-on: ubuntu-latest
+    needs: python-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+      - run: uv run pytest
+
+  rust-check:
+    name: Rust Check
+    runs-on: ubuntu-latest
+    needs: python-test
+    defaults:
+      run:
+        working-directory: rust-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust-worker
+      - run: cargo fmt --check
+      - run: cargo clippy -- -D warnings
+      - run: cargo check
+
+  rust-build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    needs: rust-check
+    env:
+      BUILD_CMD: cargo
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact: lunaris-worker-linux-amd64
+            use_cross: false
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: lunaris-worker-linux-amd64-gnu
+            use_cross: false
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            artifact: lunaris-worker-linux-arm64
+            use_cross: true
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact: lunaris-worker-linux-arm64-gnu
+            use_cross: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: lunaris-worker-windows-amd64.exe
+            use_cross: false
+    defaults:
+      run:
+        working-directory: rust-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.target }}-cargo-
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rust-src, llvm-tools-preview
+
+      - name: Install musl-tools
+        if: contains(matrix.target, 'musl') && runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools musl-dev
+
+      - name: Install cross
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Overwrite build command
+        if: matrix.use_cross
+        run: echo "BUILD_CMD=cross" >> $GITHUB_ENV
+
+      - name: Build Release
+        run: |
+          $BUILD_CMD build --target ${{ matrix.target }} --release --all-features
+          ls -lh target/${{ matrix.target }}/release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            target/${{ matrix.target }}/release/lunaris-worker
+            target/${{ matrix.target }}/release/lunaris-worker.exe
+          if-no-files-found: error
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: rust-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: List artifacts
+        run: find artifacts -type f
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/lunaris-worker-linux-amd64/lunaris-worker
+            artifacts/lunaris-worker-linux-amd64-gnu/lunaris-worker
+            artifacts/lunaris-worker-linux-arm64/lunaris-worker
+            artifacts/lunaris-worker-linux-arm64-gnu/lunaris-worker
+            artifacts/lunaris-worker-windows-amd64.exe/lunaris-worker.exe

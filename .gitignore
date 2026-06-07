@@ -9,7 +9,12 @@ wheels/
 # Virtual environments
 .venv
 
-test*
+# Ad-hoc test files (not the tests/ directory)
+/test.py
+/test2.py
+/test.wasm
+/testwasm.wasm
+/test_localhost_*.py
 
 bin/
 
