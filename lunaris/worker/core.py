@@ -19,6 +19,7 @@ Worker 核心执行器模块
         ↓ report_callback()
     Worker 主进程 (结果上报)
 """
+
 import asyncio
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
@@ -135,9 +136,7 @@ class Runner:
             max_execution_limits: 最大资源限制
         """
         # 设置最大工作进程数，fallback 到 CPU 核心数
-        self.max_workers = (
-            max_workers if max_workers and max_workers > 0 else psutil.cpu_count()
-        )
+        self.max_workers = max_workers if max_workers and max_workers > 0 else psutil.cpu_count()
         # 创建进程间通信的 Manager 和 Queue
         self.manager = multiprocessing.Manager()
         self.result_queue = self.manager.Queue()
@@ -215,9 +214,7 @@ class Runner:
         wasi_env = dict(task.wasi_env.env) if task.HasField("wasi_env") else {}
         wasi_args = list(task.wasi_env.args) if task.HasField("wasi_env") else []
         # 提取宿主能力列表
-        host_capabilities = (
-            list(task.host_capabilities.items) if task.HasField("host_capabilities") else []
-        )
+        host_capabilities = list(task.host_capabilities.items) if task.HasField("host_capabilities") else []
         # 钳制资源限制：用户请求 → 默认值 → 最大值
         execution_limits = ExecutionLimits.from_proto(task.execution_limits).clamp(
             defaults=self.default_execution_limits,

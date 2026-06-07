@@ -18,6 +18,7 @@ Master 任务调度管理器
     - 基于 StateStore 的事件驱动持久化
     - 任务状态变更记录为事件，支持增量同步
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -69,6 +70,7 @@ class Worker:
         >>> worker.add_task(123)
         >>> print(worker.available_slots)  # 剩余可用槽位
     """
+
     websocket: WebSocket
     registration: NodeRegistration
     node_id: str = field(default_factory=lambda: secrets.token_hex(16))
@@ -98,9 +100,7 @@ class Worker:
                 "max_concurrency": self.registration.max_concurrency,
                 "memory_size": self.registration.memory_size,
                 "type": self.registration.type,
-                "provided_capabilities": list(
-                    self.registration.provided_capabilities.items
-                ),
+                "provided_capabilities": list(self.registration.provided_capabilities.items),
             },
         }
 
@@ -157,9 +157,7 @@ class Worker:
         Returns:
             如果支持所有所需能力返回 True
         """
-        return set(required_capabilities).issubset(
-            set(self.registration.provided_capabilities.items)
-        )
+        return set(required_capabilities).issubset(set(self.registration.provided_capabilities.items))
 
 
 class WorkerManager:
@@ -218,9 +216,7 @@ class WorkerManager:
         record.last_heartbeat = worker.last_heartbeat
         record.connected = worker.websocket.client_state == WebSocketState.CONNECTED
         record.drain = worker.drain
-        record.status = (
-            WorkerStatus.DRAINING if worker.drain else WorkerStatus.ACTIVE
-        )
+        record.status = WorkerStatus.DRAINING if worker.drain else WorkerStatus.ACTIVE
         await self.store.persist()
         await self.notify_scheduler("worker.capacity_changed")
 
@@ -239,9 +235,7 @@ class WorkerManager:
             - 发送注册确认（包含 node_id）
             - 触发调度通知
         """
-        provided_capabilities = normalize_host_capabilities(
-            registration.provided_capabilities.items
-        )
+        provided_capabilities = normalize_host_capabilities(registration.provided_capabilities.items)
         del registration.provided_capabilities.items[:]
         registration.provided_capabilities.items.extend(provided_capabilities)
         worker = Worker(ws, registration)
@@ -300,9 +294,7 @@ class WorkerManager:
                 return worker
         return None
 
-    def get_available_worker_nowait(
-        self, required_capabilities: Optional[list[str]] = None
-    ) -> Optional[Worker]:
+    def get_available_worker_nowait(self, required_capabilities: Optional[list[str]] = None) -> Optional[Worker]:
         """获取可用的 Worker（非等待）
 
         选择可用槽位最多的 Worker，用于任务分配。
@@ -728,7 +720,12 @@ class TaskManager:
             worker.remove_task(task_id)
             if task.status == TaskStatus.CANCEL_REQUESTED:
                 task.mark_cancelled()
-                await self._record_event("task.cancelled", task=task, worker_id=worker.node_id, payload={"reason": reason or "worker lost during cancellation"})
+                await self._record_event(
+                    "task.cancelled",
+                    task=task,
+                    worker_id=worker.node_id,
+                    payload={"reason": reason or "worker lost during cancellation"},
+                )
                 continue
 
             if task.status not in {

@@ -22,6 +22,7 @@ WASM 执行引擎模块
     - LUNARIS_WORKER_VERSION: Worker 版本号
     - LUNARIS_HOST_CAPABILITIES: 启用的宿主能力（JSON 数组）
 """
+
 import os
 import tempfile
 import time
@@ -64,6 +65,7 @@ class WasmResult:
         >>> result.succeeded
         True
     """
+
     result: str
     stdout: bytes
     stderr: bytes
@@ -154,9 +156,7 @@ class WasmSandbox:
 
         # 验证模块大小限制
         if limits.max_module_bytes > 0 and len(module_code) > limits.max_module_bytes:
-            raise ValueError(
-                f"Wasm module too large: {len(module_code)} > {limits.max_module_bytes}"
-            )
+            raise ValueError(f"Wasm module too large: {len(module_code)} > {limits.max_module_bytes}")
 
         # 编译 WASM 模块
         module = Module(self.engine, module_code)
@@ -179,9 +179,7 @@ class WasmSandbox:
         if task_id is not None:
             wasi_env[INJECTED_TASK_ID_ENV] = str(task_id)
         wasi_env[INJECTED_WORKER_VERSION_ENV] = WORKER_VERSION
-        wasi_env[INJECTED_HOST_CAPABILITIES_ENV] = orjson.dumps(
-            normalized_capabilities
-        ).decode("utf-8")
+        wasi_env[INJECTED_HOST_CAPABILITIES_ENV] = orjson.dumps(normalized_capabilities).decode("utf-8")
 
         # 配置 WASI
         wasi = WasiConfig()

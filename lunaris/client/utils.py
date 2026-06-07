@@ -19,6 +19,7 @@
     wasm_bytes = compile_source("rust", source_code)
     # 然后通过 LunarisClient.submit_task() 提交 wasm_bytes
 """
+
 import os
 import shutil
 import subprocess
@@ -73,6 +74,7 @@ class CompileOptions:
         # 使用 Zig 编译 C 代码
         options = CompileOptions(use_zig=True)
     """
+
     optimize_level: str = "2"
     options: list[str] = field(default_factory=list)
     use_zig: bool = False
@@ -366,20 +368,12 @@ def _compile(
             )
         except subprocess.CalledProcessError as exc:
             # 编译失败，提取错误信息
-            error_msg = (
-                exc.stderr.decode("utf-8", errors="ignore").strip()
-                if exc.stderr
-                else "Unknown error"
-            )
+            error_msg = exc.stderr.decode("utf-8", errors="ignore").strip() if exc.stderr else "Unknown error"
             raise RuntimeError(f"Failed to compile code: {error_msg}") from exc
         except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
-                f"Compilation timed out after {timeout} seconds"
-            ) from exc
+            raise RuntimeError(f"Compilation timed out after {timeout} seconds") from exc
         except FileNotFoundError as exc:
-            raise RuntimeError(
-                "Compiler not found. Install the requested toolchain first."
-            ) from exc
+            raise RuntimeError("Compiler not found. Install the requested toolchain first.") from exc
 
         return _read_wasm_file(wasm_path)
 
@@ -739,16 +733,10 @@ crate-type = ["cdylib"]
             )
         except subprocess.CalledProcessError as exc:
             # 提取编译错误信息
-            error_msg = (
-                exc.stderr.decode("utf-8", errors="ignore").strip()
-                if exc.stderr
-                else "Unknown error"
-            )
+            error_msg = exc.stderr.decode("utf-8", errors="ignore").strip() if exc.stderr else "Unknown error"
             raise RuntimeError(f"Failed to compile Rust code: {error_msg}") from exc
         except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
-                f"Rust compilation timed out after {DEFAULT_TIMEOUT_SECONDS} seconds"
-            ) from exc
+            raise RuntimeError(f"Rust compilation timed out after {DEFAULT_TIMEOUT_SECONDS} seconds") from exc
 
         return _read_wasm_file(wasm_path)
 

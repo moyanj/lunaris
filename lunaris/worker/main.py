@@ -269,7 +269,6 @@ class Worker:
                     await self.handle_control_command(proto)
 
         except (ConnectionError, asyncio.CancelledError) as e:
-
             logger.error(f"Connection error: {e}")
         except ConnectionClosedError:
             logger.warning("Connection closed")

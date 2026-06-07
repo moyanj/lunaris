@@ -43,10 +43,7 @@ class FileStateStore(StateStore):
                 payload = orjson.loads(await f.read())
             self.tasks.clear()
             self.tasks.update(
-                {
-                    int(task_id): Task.from_snapshot(task_data)
-                    for task_id, task_data in payload.get("tasks", {}).items()
-                }
+                {int(task_id): Task.from_snapshot(task_data) for task_id, task_data in payload.get("tasks", {}).items()}
             )
             self.attempts.clear()
             self.attempts.update(
@@ -63,8 +60,7 @@ class FileStateStore(StateStore):
                 }
             )
             self.idempotency_index = {
-                key: int(task_id)
-                for key, task_id in payload.get("idempotency_index", {}).items()
+                key: int(task_id) for key, task_id in payload.get("idempotency_index", {}).items()
             }
 
         if self.events_path.exists():
@@ -85,20 +81,10 @@ class FileStateStore(StateStore):
         async with self.lock:
             # 使用原子替换写快照，避免进程中断后留下半写入文件。
             payload = {
-                "tasks": {
-                    str(task_id): task.to_snapshot() for task_id, task in self.tasks.items()
-                },
-                "attempts": {
-                    attempt_id: attempt.to_snapshot()
-                    for attempt_id, attempt in self.attempts.items()
-                },
-                "workers": {
-                    worker_id: worker.to_snapshot()
-                    for worker_id, worker in self.workers.items()
-                },
-                "idempotency_index": {
-                    key: task_id for key, task_id in self.idempotency_index.items()
-                },
+                "tasks": {str(task_id): task.to_snapshot() for task_id, task in self.tasks.items()},
+                "attempts": {attempt_id: attempt.to_snapshot() for attempt_id, attempt in self.attempts.items()},
+                "workers": {worker_id: worker.to_snapshot() for worker_id, worker in self.workers.items()},
+                "idempotency_index": {key: task_id for key, task_id in self.idempotency_index.items()},
             }
             tmp_path = self.snapshot_path.with_suffix(".tmp")
             async with aiofiles.open(tmp_path, "wb") as f:

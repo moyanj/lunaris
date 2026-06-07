@@ -143,9 +143,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
             is_mcu = registration.type == NodeRegistration.WorkerType.MCU
             await ws.send_bytes(
                 proto2bytes(
-                    ControlCommand(
-                        type=ControlCommand.CommandType.SHUTDOWN, data="Invalid token"
-                    ),
+                    ControlCommand(type=ControlCommand.CommandType.SHUTDOWN, data="Invalid token"),
                     compress=not is_mcu,
                 )
             )
@@ -167,9 +165,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
                     logger.warning("Rejected task acceptance from unregistered worker")
                     break
                 if data.node_id and data.node_id != worker.node_id:
-                    logger.warning(
-                        f"Rejected task acceptance from mismatched node_id {data.node_id}"
-                    )
+                    logger.warning(f"Rejected task acceptance from mismatched node_id {data.node_id}")
                     break
                 await state.task_manager.mark_task_running(
                     data.task_id,
@@ -181,22 +177,16 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
                 if not worker:
                     logger.warning("Rejected task result from unregistered worker connection")
                     break
-                await state.task_manager.put_result(
-                    data, state.worker_manager, worker
-                )
+                await state.task_manager.put_result(data, state.worker_manager, worker)
             elif type(data) == worker_pb2.UnregisterNode:
                 worker = state.worker_manager.get_worker_by_ws(ws)
                 if not worker:
                     logger.warning("Rejected unregister request from unknown worker connection")
                     break
                 if data.node_id and data.node_id != worker.node_id:
-                    logger.warning(
-                        f"Rejected unregister request for mismatched node_id {data.node_id}"
-                    )
+                    logger.warning(f"Rejected unregister request for mismatched node_id {data.node_id}")
                     break
-                await state.task_manager.requeue_worker_tasks(
-                    worker, reason="worker unregistered"
-                )
+                await state.task_manager.requeue_worker_tasks(worker, reason="worker unregistered")
                 await state.worker_manager.remove_worker(worker)
                 worker_removed = True
                 logger.info(f"Unregistered node {worker.node_id}")
@@ -216,9 +206,7 @@ async def websocket_endpoint(ws: WebSocket, state: AppState = Depends(get_app_st
         if not worker_removed:
             worker = state.worker_manager.get_worker_by_ws(ws)
             if worker:
-                await state.task_manager.requeue_worker_tasks(
-                    worker, reason="worker websocket disconnected"
-                )
+                await state.task_manager.requeue_worker_tasks(worker, reason="worker websocket disconnected")
                 await state.worker_manager.remove_worker(worker, status=WorkerStatus.LOST)
 
         if ws.client_state != WebSocketState.DISCONNECTED:
@@ -235,9 +223,7 @@ async def check_heartbeat(state: AppState):
             await asyncio.sleep(20)
             removed_workers = await state.worker_manager.remove_inactive_workers()
             for worker in removed_workers:
-                await state.task_manager.requeue_worker_tasks(
-                    worker, reason="worker heartbeat timeout"
-                )
+                await state.task_manager.requeue_worker_tasks(worker, reason="worker heartbeat timeout")
     except asyncio.CancelledError:
         pass
 
@@ -277,9 +263,7 @@ async def distribute_tasks(state: AppState):
                 candidate = state.task_manager.pop_next_queued_task_nowait()
                 if not candidate:
                     break
-                candidate_worker = state.worker_manager.get_available_worker_nowait(
-                    candidate.host_capabilities
-                )
+                candidate_worker = state.worker_manager.get_available_worker_nowait(candidate.host_capabilities)
                 if candidate_worker:
                     task = candidate
                     worker = candidate_worker

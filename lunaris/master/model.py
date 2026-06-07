@@ -19,6 +19,7 @@ Master 数据模型模块
     AttemptStatus: DISPATCHED → ACCEPTED → RUNNING → FINISHED/LOST/CANCELLED
     WorkerStatus: ACTIVE → DRAINING → OFFLINE/LOST
 """
+
 import base64
 from datetime import datetime, timedelta
 from enum import Enum
@@ -85,6 +86,7 @@ class TaskStatus(str, Enum):
         SUCCEEDED: 执行成功
         FAILED: 执行失败（达到最大重试次数）
     """
+
     CREATED = "created"
     QUEUED = "queued"
     LEASED = "leased"
@@ -112,6 +114,7 @@ class AttemptStatus(str, Enum):
         LOST: 丢失，Worker 断开连接
         CANCELLED: 已取消，任务被取消
     """
+
     DISPATCHED = "dispatched"
     ACCEPTED = "accepted"
     RUNNING = "running"
@@ -131,6 +134,7 @@ class WorkerStatus(str, Enum):
         OFFLINE: 离线，主动断开连接
         LOST: 丢失，心跳超时断开
     """
+
     ACTIVE = "active"
     DRAINING = "draining"
     OFFLINE = "offline"
@@ -154,6 +158,7 @@ class TaskResultPayload(BaseModel):
         >>> payload = TaskResultPayload(result='"hello"', succeeded=True, time=1.5)
         >>> proto = payload.to_proto(task_id=123)
     """
+
     result: str = ""
     stdout: bytes = b""
     stderr: bytes = b""
@@ -394,21 +399,11 @@ class Task(BaseModel):
             "assigned_worker": self.assigned_worker,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
             "assigned_at": self.assigned_at.isoformat() if self.assigned_at else None,
-            "lease_expires_at": (
-                self.lease_expires_at.isoformat() if self.lease_expires_at else None
-            ),
-            "next_retry_at": (
-                self.next_retry_at.isoformat() if self.next_retry_at else None
-            ),
-            "cancel_requested_at": (
-                self.cancel_requested_at.isoformat()
-                if self.cancel_requested_at
-                else None
-            ),
+            "lease_expires_at": (self.lease_expires_at.isoformat() if self.lease_expires_at else None),
+            "next_retry_at": (self.next_retry_at.isoformat() if self.next_retry_at else None),
+            "cancel_requested_at": (self.cancel_requested_at.isoformat() if self.cancel_requested_at else None),
             "attempt_count": self.attempt_count,
             "retry_count": max(0, self.attempt_count - 1),
             "max_retries": self.max_retries,

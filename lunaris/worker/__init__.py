@@ -6,10 +6,7 @@ from loguru import logger
 def init_logger() -> None:
     logger.remove()
     console_format = (
-        "WORKER | "
-        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-        "<level>{level: <8}</level> | "
-        "<level>{message}</level>"
+        "WORKER | <green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
     )
     logger.add(
         sys.stdout,

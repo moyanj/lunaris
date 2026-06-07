@@ -358,14 +358,10 @@ class LunarisClient:
             futures.append(future)
         try:
             # 使用 asyncio.wait 等待所有 future 完成
-            done, pending = await asyncio.wait(
-                futures, timeout=timeout, return_when=asyncio.ALL_COMPLETED
-            )
+            done, pending = await asyncio.wait(futures, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
             if pending:
                 # 可选：取消未完成的任务
-                await self.unsubscribe_tasks(
-                    [task_ids[i] for i, f in enumerate(futures) if f in pending]
-                )
+                await self.unsubscribe_tasks([task_ids[i] for i, f in enumerate(futures) if f in pending])
                 raise asyncio.TimeoutError(f"Timeout waiting for {len(pending)} tasks")
             # 返回结果，保持顺序
             return [future.result() for future in futures]
@@ -611,9 +607,7 @@ class LunarisClient:
             except Exception:
                 await asyncio.sleep(1)  # 避免频繁错误
 
-    async def wait_for_task(
-        self, task_id: int, timeout: Optional[float] = None
-    ) -> TaskResult:
+    async def wait_for_task(self, task_id: int, timeout: Optional[float] = None) -> TaskResult:
         """
         等待特定任务完成
 

@@ -8,10 +8,7 @@ from lunaris.utils import IDGenerator
 def init_logger():
     logger.remove()
     console_format = (
-        "MASTER | "
-        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-        "<level>{level: <8}</level> | "
-        "<level>{message}</level>"
+        "MASTER | <green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
     )
     logger.add(
         sys.stdout,

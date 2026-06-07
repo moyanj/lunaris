@@ -63,4 +63,3 @@ class MasterMetrics:
 
     def render_latest(self) -> bytes:
         return generate_latest(self.registry)
-

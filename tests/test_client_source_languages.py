@@ -54,18 +54,13 @@ class SyncClientSourceShortcutTest(TestCase):
     def test_submit_assemblyscript_uses_submit_source(self) -> None:
         client = SyncLunarisClient("ws://localhost:8000", "token")
         with patch.object(client, "submit_source", return_value=789) as mocked:
-            task_id = client.submit_assemblyscript(
-                "export function wmain(a: i32, b: i32): i32 { return a + b; }"
-            )
+            task_id = client.submit_assemblyscript("export function wmain(a: i32, b: i32): i32 { return a + b; }")
         self.assertEqual(task_id, 789)
         self.assertEqual(mocked.call_args.args[0], "assemblyscript")
 
     def test_submit_grain_uses_submit_source(self) -> None:
         client = SyncLunarisClient("ws://localhost:8000", "token")
         with patch.object(client, "submit_source", return_value=321) as mocked:
-            task_id = client.submit_grain(
-                "export let wmain = (a: Int32, b: Int32): Int32 => a + b"
-            )
+            task_id = client.submit_grain("export let wmain = (a: Int32, b: Int32): Int32 => a + b")
         self.assertEqual(task_id, 321)
         self.assertEqual(mocked.call_args.args[0], "grain")
-

@@ -21,11 +21,11 @@ use clap::Parser;
 use tracing::{error, info};
 
 // 模块声明
-mod capabilities;  // 宿主能力注册
-mod cli;           // 命令行参数解析
-mod core;          // Worker 核心逻辑
-mod engine;        // WASM 执行引擎
-mod proto;         // Protobuf 消息处理
+mod capabilities; // 宿主能力注册
+mod cli; // 命令行参数解析
+mod core; // Worker 核心逻辑
+mod engine; // WASM 执行引擎
+mod proto; // Protobuf 消息处理
 
 use cli::Cli;
 use core::Worker;
@@ -55,7 +55,14 @@ async fn main() -> anyhow::Result<()> {
     info!("Connecting to master: {}", args.master);
     info!("Worker name: {}", name);
     info!("Max concurrency: {}", concurrency);
-    info!("Compression: {}", if args.no_compress { "disabled" } else { "enabled" });
+    info!(
+        "Compression: {}",
+        if args.no_compress {
+            "disabled"
+        } else {
+            "enabled"
+        }
+    );
 
     // 创建 Worker 实例
     let mut worker = Worker::new(

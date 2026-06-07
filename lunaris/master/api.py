@@ -50,9 +50,7 @@ def require_client_token(
     x_client_token: Optional[str] = Header(default=None, alias="X-Client-Token"),
 ) -> None:
     provided_token = x_client_token or token
-    if not provided_token or not secrets.compare_digest(
-        provided_token, state.client_token
-    ):
+    if not provided_token or not secrets.compare_digest(provided_token, state.client_token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
 
@@ -87,12 +85,9 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                         )
                         if (
                             execution_limits.max_module_bytes > 0
-                            and len(data.wasm_module)
-                            > execution_limits.max_module_bytes
+                            and len(data.wasm_module) > execution_limits.max_module_bytes
                         ):
-                            raise ValueError(
-                                "Wasm module exceeds the configured size limit"
-                            )
+                            raise ValueError("Wasm module exceeds the configured size limit")
 
                         task = Task(
                             wasm_module=data.wasm_module,
@@ -105,20 +100,12 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
                                 "args": list(data.wasi_env.args),
                             },
                             execution_limits=execution_limits.to_dict(),
-                            host_capabilities=normalize_host_capabilities(
-                                data.host_capabilities.items
-                            ),
+                            host_capabilities=normalize_host_capabilities(data.host_capabilities.items),
                         )
 
-                        scoped_key = (
-                            f"{token}:{data.idempotency_key}"
-                            if data.idempotency_key
-                            else None
-                        )
+                        scoped_key = f"{token}:{data.idempotency_key}" if data.idempotency_key else None
                         if scoped_key:
-                            existing = state.task_manager.get_task_by_idempotency_key(
-                                scoped_key
-                            )
+                            existing = state.task_manager.get_task_by_idempotency_key(scoped_key)
                             if existing:
                                 state.task_manager.subscribe(existing.task_id, ws)
                                 await ws.send_bytes(
@@ -133,9 +120,7 @@ async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_sta
 
                         logger.info(f"Created task with ID: {task.task_id}")
                         await state.task_manager.add_task(task, ws)
-                        await state.task_manager.register_idempotency_key(
-                            scoped_key, task
-                        )
+                        await state.task_manager.register_idempotency_key(scoped_key, task)
                         await ws.send_bytes(
                             proto2bytes(
                                 TaskCreated(
@@ -233,9 +218,7 @@ async def get_tasks_by_status(
     try:
         task_status = TaskStatus(status)
         tasks = state.task_manager.get_tasks_by_status(task_status)
-        return Rest(
-            data={"count": len(tasks), "tasks": [task.to_dict() for task in tasks]}
-        )
+        return Rest(data={"count": len(tasks), "tasks": [task.to_dict() for task in tasks]})
     except ValueError:
         return Rest(msg=f"Invalid status: {status}", status_code=400)
 
@@ -324,11 +307,7 @@ async def get_system_stats(
             "workers": {
                 "total": len(state.worker_manager.workers),
                 "active": len(
-                    [
-                        w
-                        for w in state.worker_manager.workers
-                        if w.websocket.client_state == WebSocketState.CONNECTED
-                    ]
+                    [w for w in state.worker_manager.workers if w.websocket.client_state == WebSocketState.CONNECTED]
                 ),
             },
             "tasks": status_counts,

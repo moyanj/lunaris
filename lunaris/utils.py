@@ -60,9 +60,7 @@ MESSAGE_TYPE_MAP: dict[Envelope.MessageType, Type[Message]] = {
 }
 
 # 类型反向映射表：将proto类映射到Envelope.MessageType
-CLASS_TO_MESSAGE_TYPE: dict[Type[Message], Envelope.MessageType] = {
-    v: k for k, v in MESSAGE_TYPE_MAP.items()
-}
+CLASS_TO_MESSAGE_TYPE: dict[Type[Message], Envelope.MessageType] = {v: k for k, v in MESSAGE_TYPE_MAP.items()}
 
 
 def bytes2proto(
@@ -145,6 +143,7 @@ class IDGenerator:
         >>> task_id = generator.get_id()
         >>> print(task_id)  # "1234567890123456789"
     """
+
     # Worker ID 位数：10 位，支持 1024 个 Worker（0-1023）
     ID_BITS = 10
     # 序列号位数：12 位，每毫秒支持 4096 个 ID
@@ -217,11 +216,7 @@ class IDGenerator:
                 self.sequence = 0
             self.last_timestamp = timestamp
             # 组合 ID：时间戳 | Worker ID | 序列号
-            new_id = (
-                ((timestamp - self.EPOCH) << self.TIMESTAMP_SHIFT)
-                | (self.id << self.ID_SHIFT)
-                | self.sequence
-            )
+            new_id = ((timestamp - self.EPOCH) << self.TIMESTAMP_SHIFT) | (self.id << self.ID_SHIFT) | self.sequence
             return str(new_id)
 
     def _current_millis(self) -> int:

@@ -23,6 +23,7 @@
     2. 在 CapabilityRegistry 中添加注册方法
     3. 在 register_all 中调用注册方法
 """
+
 from __future__ import annotations
 
 import re
@@ -89,6 +90,7 @@ class HostContext:
         >>> ctx.require("simd")  # 成功
         >>> ctx.require("network")  # 抛出 RuntimeError
     """
+
     enabled_capabilities: frozenset[str]
 
     def require(self, capability: str) -> None:

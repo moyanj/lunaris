@@ -427,9 +427,7 @@ class SyncLunarisClient:
 
         return asyncio.run_coroutine_threadsafe(_get_stats(), self._loop).result()  # type: ignore
 
-    def wait_for_task(
-        self, task_id: int, timeout: Optional[float] = None
-    ) -> TaskResult:
+    def wait_for_task(self, task_id: int, timeout: Optional[float] = None) -> TaskResult:
         """
         等待特定任务完成
 

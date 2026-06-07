@@ -19,6 +19,7 @@ WASM 执行资源限制模块
     2. 如果用户请求 ≤ 0，使用默认值
     3. 如果最大值 > 0 且结果 > 最大值，使用最大值
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -84,6 +85,7 @@ class ExecutionLimits:
             max_module_bytes=1024 * 1024,  # 1MB
         )
     """
+
     max_fuel: int = 0
     max_memory_bytes: int = 0
     max_module_bytes: int = 0
