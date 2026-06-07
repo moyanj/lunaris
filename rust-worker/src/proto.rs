@@ -86,17 +86,17 @@ pub fn from_bytes(bytes: &[u8]) -> Result<(Vec<u8>, MessageType)> {
 ///
 /// Returns:
 ///   - 序列化的字节数据
-pub fn to_bytes(obj_buf: &Vec<u8>, message_type: MessageType, compress: bool) -> Result<Vec<u8>> {
+pub fn to_bytes(obj_buf: &[u8], message_type: MessageType, compress: bool) -> Result<Vec<u8>> {
     #[cfg(feature = "zstd")]
     let (compressed_payload, is_compressed) = if compress {
-        let compressed = zstd::encode_all(&obj_buf[..], 3).context("Failed to compress payload")?;
+        let compressed = zstd::encode_all(obj_buf, 3).context("Failed to compress payload")?;
         (compressed, true)
     } else {
-        (obj_buf.clone(), false)
+        (obj_buf.to_vec(), false)
     };
 
     #[cfg(not(feature = "zstd"))]
-    let (compressed_payload, is_compressed) = (obj_buf.clone(), false);
+    let (compressed_payload, is_compressed) = (obj_buf.to_vec(), false);
 
     let envelope = common::Envelope {
         r#type: message_type as i32,

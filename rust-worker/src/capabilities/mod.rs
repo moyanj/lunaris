@@ -112,6 +112,7 @@ macro_rules! define_capability_registry {
         }
 
         /// 获取所有可用的能力名称（用于 Worker 注册）
+        #[allow(clippy::vec_init_then_push)]
         pub fn available_names(&self) -> Vec<&'static str> {
             let mut names = Vec::new();
             $(

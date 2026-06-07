@@ -80,7 +80,7 @@ impl Worker {
     ) -> Result<Self> {
         Ok(Self {
             master_uri: master_uri.to_string(),
-            name: name,
+            name,
             token: token.to_string(),
             max_concurrency,
             use_compress,
@@ -135,7 +135,7 @@ impl Worker {
             name: self.name.clone(),
             arch: std::env::consts::ARCH.to_string(),
             max_concurrency: self.max_concurrency as u32,
-            memory_size: (sysinfo::System::new_all().total_memory() / 1024 / 1024) as u64,
+            memory_size: sysinfo::System::new_all().total_memory() / 1024 / 1024,
             token: self.token.clone(),
             provided_capabilities: Some(common::HostCapabilities {
                 items: CapabilityRegistry::new()
@@ -335,8 +335,8 @@ impl Worker {
         let runner = Runner::new_with_channel(
             self.max_concurrency,
             result_tx,
-            self.default_execution_limits.clone(),
-            self.max_execution_limits.clone(),
+            self.default_execution_limits,
+            self.max_execution_limits,
         );
         self.runner = Some(runner);
 

@@ -190,6 +190,7 @@ impl Runner {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_wasm(
     wasm_engine: &Engine,
     code: &[u8],
@@ -197,7 +198,7 @@ fn run_wasm(
     entry: &str,
     task_id: u64,
     env: &HashMap<String, String>,
-    args: &Vec<String>,
+    args: &[String],
     limits: &ExecutionLimits,
     host_capabilities: &[String],
 ) -> Result<WasmResult> {
