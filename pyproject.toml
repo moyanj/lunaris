@@ -1,7 +1,8 @@
 [project]
 name = "lunaris"
 version = "0.1.0"
-description = "Add your description here"
+description = "分布式 WASM 执行器，Worker 无需公网 IP，支持源码直传与 7 种语言 Guest SDK"
+license = "AGPL-3.0-only"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

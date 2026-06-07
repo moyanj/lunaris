@@ -260,7 +260,7 @@ docs/              # 文档
 
 ## 许可证
 
-当前仓库尚未添加 LICENSE 文件。在许可证明确之前，请不要默认该项目可以被自由分发、二次发布或商用。
+GNU Affero General Public License v3.0 (AGPL-3.0)
 
 ## 安全
 
