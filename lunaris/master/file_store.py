@@ -70,7 +70,7 @@ class FileStateStore(StateStore):
         if self.events_path.exists():
             self.task_events.clear()
             self.events.clear()
-            async with aiofiles.open(self.events_path, "r", encoding="utf-8") as f:
+            async with aiofiles.open(self.events_path, encoding="utf-8") as f:
                 content = await f.read()
             for line in content.splitlines():
                 if not line:

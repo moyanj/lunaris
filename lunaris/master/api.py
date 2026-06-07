@@ -1,16 +1,17 @@
 import secrets
 from typing import Optional
 
+import orjson
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, WebSocket
 from fastapi.websockets import WebSocketDisconnect, WebSocketState
-from lunaris.master.web_app import get_app_state, AppState
+
 from lunaris.master.model import Task, TaskStatus
+from lunaris.master.web_app import AppState, get_app_state
+from lunaris.proto.client_pb2 import CreateTask, TaskCreated, TaskCreateFailed
 from lunaris.proto.worker_pb2 import ControlCommand
-from lunaris.proto.client_pb2 import CreateTask, TaskCreateFailed, TaskCreated
+from lunaris.runtime import ExecutionLimits
 from lunaris.runtime.capabilities import normalize_host_capabilities
 from lunaris.utils import Rest, bytes2proto, proto2bytes
-from lunaris.runtime import ExecutionLimits
-import orjson
 
 app = APIRouter()
 
@@ -66,8 +67,9 @@ async def get_workers(
 
 @app.websocket("/task")
 async def tasks(token: str, ws: WebSocket, state: AppState = Depends(get_app_state)):
-    from lunaris.proto.client_pb2 import UnsubscribeTask
     from loguru import logger
+
+    from lunaris.proto.client_pb2 import UnsubscribeTask
 
     if token != state.client_token:
         raise HTTPException(status_code=403, detail="Invalid token")

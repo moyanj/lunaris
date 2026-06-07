@@ -1,12 +1,13 @@
 import asyncio
 import threading
-from typing import Optional, Dict, Any, List
-from lunaris.client.client import LunarisClient
+from typing import Any, Dict, List, Optional
+
+from loguru import logger
+
+from lunaris.client.client import LunarisClient, WasiEnv
 from lunaris.client.utils import CompileOptions, SourceLanguage
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.runtime import ExecutionLimits
-from loguru import logger
-from lunaris.client.client import WasiEnv
 
 
 class SyncLunarisClient:

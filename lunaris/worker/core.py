@@ -20,14 +20,16 @@ Worker 核心执行器模块
     Worker 主进程 (结果上报)
 """
 import asyncio
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
-from typing import Optional, Callable, Any
+from typing import Any, Callable, Optional
+
+import orjson
 import psutil
+from loguru import logger
+
 from lunaris.proto.worker_pb2 import Task
 from lunaris.runtime import ExecutionLimits, WasmResult, WasmSandbox
-import orjson
-import multiprocessing
-from loguru import logger
 
 
 def _execute_task(
@@ -96,7 +98,7 @@ def _execute_task(
         logger.error(f"Error executing task: {str(e)}")
         result = WasmResult(
             result="",
-            stdout="".encode("utf-8"),
+            stdout=b"",
             stderr=repr(e).encode("utf-8"),
             time=0,
             succeeded=False,

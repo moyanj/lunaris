@@ -1,14 +1,16 @@
 import argparse
 import asyncio
 import os
-from lunaris.worker.main import Worker
-from lunaris.master.web_app import app as master_app
-from lunaris.runtime import ExecutionLimits
-import uvicorn
 import sys
 
+import uvicorn
+
+from lunaris.master.web_app import app as master_app
+from lunaris.runtime import ExecutionLimits
+from lunaris.worker.main import Worker
+
 try:
-    import uvloop
+    import uvloop  # noqa: F401 - imported for side effect
 except ImportError:
     pass
 
@@ -67,7 +69,7 @@ async def main():
             parser.print_help()
     except KeyboardInterrupt:
         sys.exit(0)
-    except Exception as e:
+    except Exception:
         import traceback
 
         traceback.print_exc()
@@ -111,7 +113,7 @@ async def run_worker(args):
 
     try:
         await worker.run()
-    except:
+    except Exception:
         pass
     finally:
         await worker.shutdown()

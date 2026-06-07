@@ -32,10 +32,28 @@ dev = [
 [tool.ruff]
 target-version = "py39"
 line-length = 120
+exclude = ["lunaris/proto/*", "*.pyi"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E721",   # type comparison (existing code)
+    "N802",   # function name should be lowercase (Rest)
+    "UP006",  # use type instead of Type
+    "UP007",  # use X | Y for type annotations
+    "UP022",  # use subprocess instead of os.popen
+    "UP035",  # deprecated imports
+    "UP045",  # use X | None
+    "UP037",  # remove quotes from type annotation
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # allow re-exports and wildcard imports in __init__.py
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["lunaris*"]

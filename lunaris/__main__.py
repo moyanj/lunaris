@@ -1,6 +1,7 @@
-from lunaris.cli.main import main
 import asyncio
 import sys
+
+from lunaris.cli.main import main
 
 if __name__ == "__main__":
     try:

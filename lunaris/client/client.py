@@ -1,21 +1,23 @@
 import asyncio
-from dataclasses import dataclass, field
 import json
 import secrets
-from typing import Callable, Optional, Dict, Any, List, Union
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib import request
 from urllib.error import HTTPError
-from websockets import connect, ConnectionClosed
+
+from websockets import ConnectionClosed, connect
+
+from lunaris.client.utils import CompileOptions, SourceLanguage, compile_source
 from lunaris.proto.client_pb2 import (
     CreateTask,
-    TaskCreateFailed,
     TaskCreated,
+    TaskCreateFailed,
     UnsubscribeTask,
 )
 from lunaris.proto.common_pb2 import TaskResult
-from lunaris.utils import proto2bytes, bytes2proto
 from lunaris.runtime import ExecutionLimits
-from lunaris.client.utils import CompileOptions, SourceLanguage, compile_source
+from lunaris.utils import bytes2proto, proto2bytes
 
 
 @dataclass
@@ -47,7 +49,7 @@ class LunarisClient:
             self.websocket = await connect(f"{self.master_uri}/task?token={self.token}")
             self._running = True
             self._receive_task = asyncio.create_task(self._receive_messages())
-        except Exception as e:
+        except Exception:
             raise
 
     async def submit_task(
@@ -599,14 +601,14 @@ class LunarisClient:
                                 await callback(result)
                             else:
                                 callback(result)
-                        except Exception as e:
+                        except Exception:
                             pass
                         # 移除已完成的回调
                         self._task_callbacks.pop(task_id, None)
 
             except ConnectionClosed:
                 break
-            except Exception as e:
+            except Exception:
                 await asyncio.sleep(1)  # 避免频繁错误
 
     async def wait_for_task(

@@ -1,14 +1,17 @@
 import asyncio
 import json
 import os
-import secrets
 import platform
+import secrets
 from contextlib import suppress
-import psutil
 from typing import Optional
+
+import psutil
+from loguru import logger
 from websockets import ConnectionClosedError, State
-from websockets.asyncio.client import connect, ClientConnection
-from lunaris.utils import proto2bytes, bytes2proto
+from websockets.asyncio.client import ClientConnection, connect
+
+from lunaris.proto.common_pb2 import TaskResult
 from lunaris.proto.worker_pb2 import (
     ControlCommand,
     NodeRegistration,
@@ -17,13 +20,12 @@ from lunaris.proto.worker_pb2 import (
     TaskAccepted,
     UnregisterNode,
 )
-from lunaris.proto.common_pb2 import TaskResult
-from lunaris.runtime.capabilities import DEFAULT_PROVIDED_CAPABILITIES
 from lunaris.runtime import ExecutionLimits
+from lunaris.runtime.capabilities import DEFAULT_PROVIDED_CAPABILITIES
 from lunaris.runtime.engine import WasmResult
-from lunaris.worker.core import Runner
-from loguru import logger
+from lunaris.utils import bytes2proto, proto2bytes
 from lunaris.worker import init_logger
+from lunaris.worker.core import Runner
 
 
 def _env_limit(name: str, default: int = 0) -> int:
@@ -156,7 +158,7 @@ class Worker:
         else:
             self.node_id = response.node_id
 
-        logger.info(f"Registered.")
+        logger.info("Registered.")
 
     async def report_result(self, result: WasmResult, task_id: int, attempt: int) -> None:
         """向Master报告任务结果"""
@@ -267,7 +269,6 @@ class Worker:
                     await self.handle_control_command(proto)
 
         except (ConnectionError, asyncio.CancelledError) as e:
-            import traceback
 
             logger.error(f"Connection error: {e}")
         except ConnectionClosedError:

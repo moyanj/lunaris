@@ -23,15 +23,15 @@ WASM 执行引擎模块
     - LUNARIS_HOST_CAPABILITIES: 启用的宿主能力（JSON 数组）
 """
 import os
-import orjson
+import tempfile
 import time
 from dataclasses import dataclass
 from importlib import metadata
 
-from wasmtime import Config, Engine, Store, WasiConfig, Module, Linker
-import tempfile
+import orjson
+from wasmtime import Config, Engine, Linker, Module, Store, WasiConfig
 
-from lunaris.runtime.capabilities import HostContext, REGISTRY, normalize_host_capabilities
+from lunaris.runtime.capabilities import REGISTRY, HostContext, normalize_host_capabilities
 from lunaris.runtime.limits import ExecutionLimits
 
 # 注入到 WASI 环境的变量名
@@ -234,12 +234,12 @@ class WasmSandbox:
                 stderr=stderr,
                 time=run_time * 1000,  # 转换为毫秒
             )
-        except Exception as e:
+        except Exception:
             # 结果序列化失败，返回失败状态
             return WasmResult(
                 result="",
                 stdout=stdout,
-                stderr="".format(e).encode("utf-8"),
+                stderr=b"",
                 time=run_time * 1000,
                 succeeded=False,
             )

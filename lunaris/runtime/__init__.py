@@ -1,2 +1,2 @@
-from .engine import WasmSandbox, WasmResult
+from .engine import WasmResult, WasmSandbox
 from .limits import ExecutionLimits

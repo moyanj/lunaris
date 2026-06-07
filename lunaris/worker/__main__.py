@@ -1,6 +1,7 @@
-from lunaris.worker.main import Worker
 import asyncio
 import os
+
+from lunaris.worker.main import Worker
 
 
 async def main():

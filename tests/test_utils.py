@@ -1,7 +1,7 @@
 """Lunaris utils 模块的单元测试。"""
 
-from lunaris.utils import IDGenerator, proto2bytes, bytes2proto
 from lunaris.proto.worker_pb2 import NodeStatus
+from lunaris.utils import IDGenerator, bytes2proto, proto2bytes
 
 
 def test_id_generator_unique():
@@ -35,26 +35,26 @@ def test_id_generator_worker_id_validation():
 def test_proto_roundtrip():
     """测试 proto 编解码往返。"""
     msg = NodeStatus()
-    msg.worker_id = 42
-    msg.running_tasks = 3
-    msg.load = 0.75
+    msg.node_id = "worker-42"
+    msg.status = NodeStatus.NodeState.IDLE
+    msg.current_task = 3
 
     encoded = proto2bytes(msg, compress=False)
     decoded = bytes2proto(encoded)
     assert isinstance(decoded, NodeStatus)
-    assert decoded.worker_id == 42
-    assert decoded.running_tasks == 3
+    assert decoded.node_id == "worker-42"
+    assert decoded.current_task == 3
 
 
 def test_proto_roundtrip_compressed():
     """测试 proto 压缩编解码往返。"""
     msg = NodeStatus()
-    msg.worker_id = 42
-    msg.running_tasks = 3
-    msg.load = 0.75
+    msg.node_id = "worker-42"
+    msg.status = NodeStatus.NodeState.IDLE
+    msg.current_task = 3
 
     encoded = proto2bytes(msg, compress=True)
     decoded = bytes2proto(encoded)
     assert isinstance(decoded, NodeStatus)
-    assert decoded.worker_id == 42
-    assert decoded.running_tasks == 3
+    assert decoded.node_id == "worker-42"
+    assert decoded.current_task == 3

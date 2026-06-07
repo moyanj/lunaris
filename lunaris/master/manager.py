@@ -32,6 +32,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
 from loguru import logger
 
+from lunaris.master.metrics import MasterMetrics
 from lunaris.master.model import (
     AttemptStatus,
     Task,
@@ -41,7 +42,6 @@ from lunaris.master.model import (
     WorkerRecord,
     WorkerStatus,
 )
-from lunaris.master.metrics import MasterMetrics
 from lunaris.master.store_base import StateStore
 from lunaris.proto.common_pb2 import TaskResult
 from lunaris.proto.worker_pb2 import ControlCommand, NodeRegistration, NodeRegistrationReply, NodeStatus

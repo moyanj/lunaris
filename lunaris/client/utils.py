@@ -27,7 +27,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional, Sequence
 
-
 # WASM 编译目标平台
 WASI_TARGET = "wasm32-wasip1"
 
